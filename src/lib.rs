@@ -1,55 +1,19 @@
 pub mod time_point;
 pub mod precision;
 pub mod interval;
+pub mod util;
 
-use precision::Precision;
-use time_point::TimePoint;
+use crate::time_point::{TimePoint, time_point};
+use crate::precision::Precision;
 
-fn parse_date(input: &str) -> Result<Vec<u32>, String> {
-    let parts: Vec<&str> = input.split("-").collect();
 
-    parts
-        .iter()
-        .map(|x| x.parse::<u32>().map_err(|_| String::from("Invalid number format")))
-        .collect()
-}
-
-fn date(input: &str) -> Result<TimePoint, String> {
-    if input.is_empty() {
-        return Err(String::from("No args"));
-    }
-
-    let parsed_date: Vec<u32> = parse_date(input)?;
-
-    match parsed_date.len() {
-        1 => Ok(TimePoint {
-            year: parsed_date[0],
-            month: 1,
-            day: 1,
-            precision: Precision::Year,
-        }),
-        2 => Ok(TimePoint {
-            year: parsed_date[0],
-            month: parsed_date[1],
-            day: 1,
-            precision: Precision::Month,
-        }),
-        3 => Ok(TimePoint {
-            year: parsed_date[0],
-            month: parsed_date[1],
-            day: parsed_date[2],
-            precision: Precision::Day,
-        }),
-        _ => Err(String::from("Invalid date format")),
-    }
-}
 #[cfg(test)] // done 
 mod parse_tests {
 
     use super::*;
     #[test]
     fn parses_year_point() {
-        let result = date("2027").unwrap();
+        let result = time_point("2027").unwrap();
 
         assert_eq!(
             result,
@@ -64,13 +28,13 @@ mod parse_tests {
 
     #[test]
     fn parses_month_point() {
-        let result = date("2027-04").unwrap();
+        let result = time_point("2027-11").unwrap();
 
         assert_eq!(
             result,
             TimePoint {
                 year: 2027,
-                month: 4,
+                month: 11,
                 day: 1,
                 precision: Precision::Month,
             }
@@ -79,7 +43,7 @@ mod parse_tests {
 
     #[test]
     fn parses_day_point() {
-        let result = date("2027-04-20").unwrap();
+        let result = time_point("2027-04-20").unwrap();
 
         assert_eq!(
             result,
@@ -91,34 +55,46 @@ mod parse_tests {
             }
         );
     }
+    
+    #[test]
+    fn fails_on_invalid_month() {
+        let result = time_point("2027-13-01");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn fails_on_invalid_day() {
+        let result = time_point("2027-04-40");
+        assert!(result.is_err());
+    }
 
     #[test]
     fn fails_on_too_many_parts() {
-        let result = date("2027-04-10-12");
+        let result = time_point("2027-04-10-12");
         assert!(result.is_err());
     }
 
     #[test]
     fn fails_on_empty_input() {
-        let result = date("");
+        let result = time_point("");
         assert!(result.is_err());
     }
 
     #[test]
     fn fails_on_non_numeric_year() {
-        let result = date("abcd");
+        let result = time_point("abcd");
         assert!(result.is_err());
     }
 
     #[test]
     fn fails_on_non_numeric_month() {
-        let result = date("2027-ab");
+        let result = time_point("2027-ab");
         assert!(result.is_err());
     }
 
     #[test]
     fn fails_on_non_numeric_day() {
-        let result = date("2027-04-xx");
+        let result = time_point("2027-04-xx");
         assert!(result.is_err());
     }
 }
@@ -131,7 +107,7 @@ mod normalization_tests {
     
     #[test]
     fn normalizes_year_to_interval() {
-        let result = to_interval(&date("2027").unwrap());
+        let result = to_interval(&time_point("2027").unwrap());
 
         assert_eq!(
             result,
@@ -154,7 +130,7 @@ mod normalization_tests {
 
     #[test]
     fn normalizes_month_to_interval() {
-        let result = to_interval(&date("2027-04").unwrap());
+        let result = to_interval(&time_point("2027-04").unwrap());
 
         assert_eq!(
             result,
@@ -177,7 +153,7 @@ mod normalization_tests {
 
     #[test]
     fn normalizes_day_to_interval() {
-        let result = to_interval(&date("2027-04-20").unwrap());
+        let result = to_interval(&time_point("2027-04-20").unwrap());
 
         assert_eq!(
             result,
@@ -206,24 +182,24 @@ mod equals_tests {
 
     #[test]
     fn equals_true_for_same_year() {
-        let a = date("2027").unwrap();
-        let b = date("2027").unwrap();
+        let a = time_point("2027").unwrap();
+        let b = time_point("2027").unwrap();
 
         assert!(a.equals(&b));
     }
 
     #[test]
     fn equals_false_for_year_and_exact_day() {
-        let a = date("2027").unwrap();
-        let b = date("2027-01-01").unwrap();
+        let a = time_point("2027").unwrap();
+        let b = time_point("2027-01-01").unwrap();
 
         assert!(!a.equals(&b));
     }
 
     #[test]
     fn equals_true_for_same_month() {
-        let a = date("2027-04").unwrap();
-        let b = date("2027-04").unwrap();
+        let a = time_point("2027-04").unwrap();
+        let b = time_point("2027-04").unwrap();
 
         assert!(a.equals(&b));
     }
@@ -235,24 +211,24 @@ mod before_tests {
 
     #[test]
     fn before_true_for_adjacent_days() {
-        let a = date("2027-01-01").unwrap();
-        let b = date("2027-01-02").unwrap();
+        let a = time_point("2027-01-01").unwrap();
+        let b = time_point("2027-01-02").unwrap();
 
         assert!(a.before(&b));
     }
 
     #[test]
     fn before_true_for_adjacent_months() {
-        let a = date("2027-04").unwrap();
-        let b = date("2027-05").unwrap();
+        let a = time_point("2027-04").unwrap();
+        let b = time_point("2027-05").unwrap();
 
         assert!(a.before(&b));
     }
 
     #[test]
     fn before_false_for_year_and_month_inside_it() {
-        let a = date("2027").unwrap();
-        let b = date("2027-04").unwrap();
+        let a = time_point("2027").unwrap();
+        let b = time_point("2027-04").unwrap();
 
         assert!(!a.before(&b));
     }
@@ -267,27 +243,107 @@ mod after_tests {
 
     #[test]
     fn after_true_for_adjacent_days() {
-        let a = date("2027-01-02").unwrap();
-        let b = date("2027-01-01").unwrap();
+        let a = time_point("2027-01-02").unwrap();
+        let b = time_point("2027-01-01").unwrap();
 
         assert!(a.after(&b));
     }
 
     #[test]
     fn after_true_for_adjacent_months() {
-        let a = date("2027-05").unwrap();
-        let b = date("2027-04").unwrap();
+        let a = time_point("2027-05").unwrap();
+        let b = time_point("2027-04").unwrap();
 
         assert!(a.after(&b));
     }
 
     #[test]
     fn after_false_for_month_and_year_containing_it() {
-        let a = date("2027-04").unwrap();
-        let b = date("2027").unwrap();
+        let a = time_point("2027-04").unwrap();
+        let b = time_point("2027").unwrap();
 
         assert!(!a.after(&b));
     }
 
     
+}
+
+#[cfg(test)]
+mod contains_tests {
+    use crate::interval::to_interval;
+
+    use super::*;
+
+    #[test]
+    fn contains_true_for_adjacent_days() {
+        let a = time_point("2027-01").unwrap();
+        let b = time_point("2027-01-05").unwrap();
+
+        let interval_a = to_interval(&a);
+        let interval_b = to_interval(&b);
+
+        assert!(interval_a.contains(&interval_b));
+    }
+
+        #[test]
+    fn contains_false_for_non_contained_month() {
+        let a = time_point("2027-01").unwrap();
+        let b = time_point("2027-02").unwrap();           
+
+        let interval_a = to_interval(&a);
+        let interval_b = to_interval(&b);
+
+        assert!(!interval_a.contains(&interval_b));
+    }
+
+    #[test ]
+    fn contains_true_for_same_month() {
+        let a = time_point("2027-01").unwrap();
+        let b = time_point("2027-01").unwrap();           
+
+        let interval_a = to_interval(&a);
+        let interval_b = to_interval(&b);
+
+        assert!(interval_a.contains(&interval_b));
+    }
+}
+
+#[cfg(test)]
+mod overlaps_tests {
+    use crate::interval::to_interval;
+
+    use super::*;
+
+    #[test]
+    fn overlaps_true_for_adjacent_days() {
+        let a = time_point("2027-01").unwrap();
+        let b = time_point("2027-01-05").unwrap();
+
+        let interval_a = to_interval(&a);
+        let interval_b = to_interval(&b);
+
+        assert!(interval_a.overlaps(&interval_b));
+    }
+
+    #[test] 
+    fn overlaps_false_for_non_overlapping_month() {
+        let a = time_point("2027-01").unwrap();
+        let b = time_point("2027-02").unwrap();           
+
+        let interval_a = to_interval(&a);
+        let interval_b = to_interval(&b);
+
+        assert!(!interval_a.overlaps(&interval_b));
+    }
+
+    #[test ]
+    fn overlaps_true_for_same_month() {
+        let a = time_point("2027-01").unwrap();
+        let b = time_point("2027-01").unwrap();           
+
+        let interval_a = to_interval(&a);
+        let interval_b = to_interval(&b);
+
+        assert!(interval_a.overlaps(&interval_b));
+    }
 }

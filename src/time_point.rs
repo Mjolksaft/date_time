@@ -1,6 +1,8 @@
 use crate::precision::Precision;
 use std::cmp::Ordering;
 
+use crate::util::valid_date;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct TimePoint {
     pub year: u32,
@@ -8,6 +10,59 @@ pub struct TimePoint {
     pub day: u32,
     pub precision: Precision,
 }
+
+pub fn parse_date_time_point(input: &str) -> Result<Vec<u32>, String> {
+    let parts: Vec<&str> = input.split("-").collect();
+    
+    parts
+        .iter()
+        .map(|x| x.parse::<u32>().map_err(|_| String::from("Invalid number format")))
+        .collect()
+}
+
+pub fn time_point(input: &str) -> Result<TimePoint, String> {
+    if input.is_empty() {
+        return Err(String::from("No args"));
+    }
+
+    let parsed_date: Vec<u32> = parse_date_time_point(input)?;
+
+    match parsed_date.len() {
+        1 => Ok(TimePoint {
+            year: parsed_date[0],
+            month: 1,
+            day: 1,
+            precision: Precision::Year,
+        }),
+        2 => {
+            if !valid_date(&parsed_date[0], Some(&parsed_date[1]), None) {
+                return Err(String::from("Invalid month"));
+            }
+
+            Ok(TimePoint {
+                year: parsed_date[0],
+                month: parsed_date[1],
+                day: 1,
+                precision: Precision::Month,
+            })
+
+    },
+        
+        3 => {
+            if !valid_date(&parsed_date[0], Some(&parsed_date[1]), Some(&parsed_date[2])) {
+                return Err(String::from("Invalid date format"));
+            }
+            Ok(TimePoint {
+                year: parsed_date[0],
+                month: parsed_date[1],
+                day: parsed_date[2],
+                precision: Precision::Day,
+            })
+        },
+        _ => Err(String::from("Invalid date format")),
+    }
+}
+
 
 impl Ord for TimePoint {
     fn cmp(&self, other: &Self) -> Ordering {
