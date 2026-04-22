@@ -2,6 +2,7 @@ use crate::precision::Precision;
 use std::cmp::Ordering;
 
 use crate::util::valid_date;
+use crate::interval::to_interval;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct TimePoint {
@@ -86,14 +87,14 @@ impl TimePoint {
     }
 
     pub fn before(&self, other: &TimePoint) -> bool {
-        let a = crate::interval::to_interval(self);
-        let b = crate::interval::to_interval(other);
+        let a = to_interval(self, None);
+        let b = to_interval(other, None);
         a.before(&b)
     }
 
     pub fn after(&self, other: &TimePoint) -> bool {
-        let a = crate::interval::to_interval(self);
-        let b = crate::interval::to_interval(other);
+        let a = to_interval(self, None);
+        let b = to_interval(other, None);
         a.after(&b)
     }
 }

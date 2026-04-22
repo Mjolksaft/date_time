@@ -8,12 +8,20 @@ pub struct Interval {
     pub upper: TimePoint,
 }
 
-pub fn to_interval(lower: &TimePoint) -> Interval { // TODO: account for leapyear
+pub fn interval(lower: &TimePoint, upper: &TimePoint) -> Result<Interval, String> {
+    if lower > upper {
+        return Err(String::from("Lower bound must be less than or equal to upper bound"));
+    }
+
+    Ok(Interval { lower: lower.clone(), upper: upper.clone()})
+}
+
+pub fn calculate_upper(lower: &TimePoint) -> TimePoint { // TODO: account for leapyear
     let year = lower.year;
     let month = lower.month;
     let day = lower.day;
 
-    let upper = match lower.precision {
+    match lower.precision {
         Precision::Year => TimePoint {
             year: year + 1,
             month: 1,
@@ -66,6 +74,18 @@ pub fn to_interval(lower: &TimePoint) -> Interval { // TODO: account for leapyea
                 }
             }
         },
+    }
+}
+
+pub fn to_interval(lower: &TimePoint, upper: Option<&TimePoint>) -> Interval {
+    let upper: TimePoint = match upper {
+        Some(upper) => {
+            if lower > upper {
+                panic!("Lower bound must be less than or equal to upper bound");
+            }
+            upper.clone() // if upper is provided, use it as is (it should already be normalized to the next time point)
+        }
+        None => calculate_upper(lower),
     };
 
     Interval {

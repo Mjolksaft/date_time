@@ -5,6 +5,66 @@ pub mod util;
 
 use crate::time_point::{TimePoint, time_point};
 use crate::precision::Precision;
+use crate::interval::{Interval, interval};
+
+
+#[cfg(test)] // done 
+mod interval_tests {
+    use crate::interval::to_interval;
+
+    use super::*;
+    
+    #[test]
+    fn constructs_day_to_day_interval() {
+        let start = time_point("2027-04-10").unwrap();
+        let end = time_point("2027-04-12").unwrap();
+
+        let result = interval(&start, &end).unwrap();
+
+        assert_eq!(
+            result,
+            Interval {
+                lower: TimePoint {
+                    year: 2027,
+                    month: 4,
+                    day: 10,
+                    precision: Precision::Day,
+                },
+                upper: TimePoint {
+                    year: 2027,
+                    month: 4,
+                    day: 12,
+                    precision: Precision::Day,
+                }
+            }
+        );
+    }
+
+        #[test]
+    fn to_interval_day_to_day() {
+        let start = time_point("2027-04-10").unwrap();
+
+        let result = to_interval(&start, None);
+
+        assert_eq!(
+            result,
+            Interval {
+                lower: TimePoint {
+                    year: 2027,
+                    month: 4,
+                    day: 10,
+                    precision: Precision::Day,
+                },
+                upper: TimePoint {
+                    year: 2027,
+                    month: 4,
+                    day: 11,
+                    precision: Precision::Day,
+                }
+            }
+        );
+    }
+}
 
 
 #[cfg(test)] // done 
@@ -107,7 +167,7 @@ mod normalization_tests {
     
     #[test]
     fn normalizes_year_to_interval() {
-        let result = to_interval(&time_point("2027").unwrap());
+        let result = to_interval(&time_point("2027").unwrap(), None);
 
         assert_eq!(
             result,
@@ -130,7 +190,7 @@ mod normalization_tests {
 
     #[test]
     fn normalizes_month_to_interval() {
-        let result = to_interval(&time_point("2027-04").unwrap());
+        let result = to_interval(&time_point("2027-04").unwrap(), None);
 
         assert_eq!(
             result,
@@ -153,7 +213,7 @@ mod normalization_tests {
 
     #[test]
     fn normalizes_day_to_interval() {
-        let result = to_interval(&time_point("2027-04-20").unwrap());
+        let result = to_interval(&time_point("2027-04-20").unwrap(), None);
 
         assert_eq!(
             result,
@@ -279,8 +339,8 @@ mod contains_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-01-05").unwrap();
 
-        let interval_a = to_interval(&a);
-        let interval_b = to_interval(&b);
+        let interval_a = to_interval(&a,None);
+        let interval_b = to_interval(&b,None);
 
         assert!(interval_a.contains(&interval_b));
     }
@@ -290,8 +350,8 @@ mod contains_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-02").unwrap();           
 
-        let interval_a = to_interval(&a);
-        let interval_b = to_interval(&b);
+        let interval_a = to_interval(&a, None);
+        let interval_b = to_interval(&b, None);
 
         assert!(!interval_a.contains(&interval_b));
     }
@@ -301,8 +361,8 @@ mod contains_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-01").unwrap();           
 
-        let interval_a = to_interval(&a);
-        let interval_b = to_interval(&b);
+        let interval_a = to_interval(&a, None);
+        let interval_b = to_interval(&b, None);
 
         assert!(interval_a.contains(&interval_b));
     }
@@ -319,8 +379,8 @@ mod overlaps_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-01-05").unwrap();
 
-        let interval_a = to_interval(&a);
-        let interval_b = to_interval(&b);
+        let interval_a = to_interval(&a, None);
+        let interval_b = to_interval(&b, None);
 
         assert!(interval_a.overlaps(&interval_b));
     }
@@ -330,8 +390,8 @@ mod overlaps_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-02").unwrap();           
 
-        let interval_a = to_interval(&a);
-        let interval_b = to_interval(&b);
+        let interval_a = to_interval(&a, None);
+        let interval_b = to_interval(&b, None);
 
         assert!(!interval_a.overlaps(&interval_b));
     }
@@ -341,8 +401,8 @@ mod overlaps_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-01").unwrap();           
 
-        let interval_a = to_interval(&a);
-        let interval_b = to_interval(&b);
+        let interval_a = to_interval(&a, None);
+        let interval_b = to_interval(&b, None);
 
         assert!(interval_a.overlaps(&interval_b));
     }
