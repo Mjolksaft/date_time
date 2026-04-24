@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 
 use crate::util::valid_date;
 use crate::interval::to_interval;
+use crate::truth_values::TruthValue;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct TimePoint {
@@ -35,10 +36,9 @@ pub fn time_point(input: &str) -> Result<TimePoint, String> {
             day: 1,
             precision: Precision::Year,
         }),
+
         2 => {
-            if !valid_date(&parsed_date[0], Some(&parsed_date[1]), None) {
-                return Err(String::from("Invalid month"));
-            }
+            valid_date(parsed_date[0], Some(parsed_date[1]), None)?;
 
             Ok(TimePoint {
                 year: parsed_date[0],
@@ -46,24 +46,22 @@ pub fn time_point(input: &str) -> Result<TimePoint, String> {
                 day: 1,
                 precision: Precision::Month,
             })
+        }
 
-    },
-        
         3 => {
-            if !valid_date(&parsed_date[0], Some(&parsed_date[1]), Some(&parsed_date[2])) {
-                return Err(String::from("Invalid date format"));
-            }
+            valid_date(parsed_date[0], Some(parsed_date[1]), Some(parsed_date[2]))?;
+
             Ok(TimePoint {
                 year: parsed_date[0],
                 month: parsed_date[1],
                 day: parsed_date[2],
                 precision: Precision::Day,
             })
-        },
+        }
+
         _ => Err(String::from("Invalid date format")),
     }
 }
-
 
 impl Ord for TimePoint {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -79,22 +77,38 @@ impl PartialOrd for TimePoint {
 }
 
 impl TimePoint {
-    pub fn equals(&self, other: &TimePoint) -> bool {
-        self.year == other.year
-            && self.month == other.month
-            && self.day == other.day
-            && self.precision == other.precision // maybe dont check precision?
+    pub fn equals(&self, other: &TimePoint) -> Result<TruthValue, String> {
+        let a = to_interval(self, None)?;
+        let b = to_interval(other, None)?;
+
+        Ok(a.equals(&b))
     }
 
-    pub fn before(&self, other: &TimePoint) -> bool {
-        let a = to_interval(self, None);
-        let b = to_interval(other, None);
-        a.before(&b)
+    pub fn before(&self, other: &TimePoint) -> Result<TruthValue, String> {
+        let a = to_interval(self, None)?;
+        let b = to_interval(other, None)?;
+
+        Ok(a.before(&b))
     }
 
-    pub fn after(&self, other: &TimePoint) -> bool {
-        let a = to_interval(self, None);
-        let b = to_interval(other, None);
-        a.after(&b)
+    pub fn after(&self, other: &TimePoint) -> Result<TruthValue, String> {
+        let a = to_interval(self, None)?;
+        let b = to_interval(other, None)?;
+
+        Ok(a.after(&b))
+    }
+
+    pub fn contains(&self, other: &TimePoint) -> Result<TruthValue, String> {
+        let a = to_interval(self, None)?;
+        let b = to_interval(other, None)?;
+
+        Ok(a.contains(&b))
+    }
+
+    pub fn overlaps(&self, other: &TimePoint) -> Result<TruthValue, String> {
+        let a = to_interval(self, None)?;
+        let b = to_interval(other, None)?;
+
+        Ok(a.overlaps(&b))
     }
 }

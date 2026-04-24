@@ -1,5 +1,6 @@
 use crate::time_point::TimePoint;
 use crate::precision::Precision;
+use crate::truth_values::TruthValue;
 use crate::util::{days_in_month};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -16,7 +17,7 @@ pub fn interval(lower: &TimePoint, upper: &TimePoint) -> Result<Interval, String
     Ok(Interval { lower: lower.clone(), upper: upper.clone()})
 }
 
-pub fn calculate_upper(lower: &TimePoint) -> TimePoint { // TODO: account for leapyear
+pub fn calculate_upper(lower: &TimePoint) -> TimePoint {
     let year = lower.year;
     let month = lower.month;
     let day = lower.day;
@@ -48,7 +49,7 @@ pub fn calculate_upper(lower: &TimePoint) -> TimePoint { // TODO: account for le
         }
 
         Precision::Day => {
-            let days_in_current_month = days_in_month(&year, &month);
+            let days_in_current_month = days_in_month(year, month);
             if day == days_in_current_month {
                 if month == 12 {
                     TimePoint {
@@ -77,42 +78,62 @@ pub fn calculate_upper(lower: &TimePoint) -> TimePoint { // TODO: account for le
     }
 }
 
-pub fn to_interval(lower: &TimePoint, upper: Option<&TimePoint>) -> Interval {
+pub fn to_interval(lower: &TimePoint, upper: Option<&TimePoint>) -> Result<Interval, String> {
     let upper: TimePoint = match upper {
-        Some(upper) => {
-            if lower > upper {
-                panic!("Lower bound must be less than or equal to upper bound");
+        Some(upper_point) => {
+            if lower > upper_point {
+                return Err(String::from("Lower bound must be less than or equal to upper bound"));
             }
-            upper.clone() // if upper is provided, use it as is (it should already be normalized to the next time point)
+            upper_point.clone()
         }
         None => calculate_upper(lower),
     };
 
-    Interval {
+    Ok(Interval {
         lower: lower.clone(),
         upper,
-    }
+    })
 }
 
 impl Interval {
-    pub fn before(&self, other: &Interval) -> bool {
-        self.upper <= other.lower
+    pub fn before(&self, other: &Interval) -> TruthValue {
+        if self.upper <= other.lower {
+            TruthValue::True
+        } else {
+            TruthValue::False
+        }
     }
 
-    pub fn after(&self, other: &Interval) -> bool {
-        self.lower >= other.upper
+    pub fn after(&self, other: &Interval) -> TruthValue {
+        if self.lower >= other.upper {
+            TruthValue::True
+        } else {
+            TruthValue::False
+        }
     }
 
-    pub fn equals(&self, other: &Interval) -> bool {
-        self.lower.equals(&other.lower) && self.upper.equals(&other.upper)
+pub fn equals(&self, other: &Interval) -> TruthValue {
+    if self.lower == other.lower && self.upper == other.upper {
+        TruthValue::True
+    } else {
+        TruthValue::False
+    }
+}
+
+    pub fn overlaps(&self, other: &Interval) -> TruthValue {
+        if self.lower < other.upper && self.upper > other.lower {
+            TruthValue::True
+        } else {
+            TruthValue::False
+        }
     }
 
-    pub fn overlaps(&self, other: &Interval) -> bool {
-        self.lower < other.upper && self.upper > other.lower
-    }
-
-    pub fn contains(&self, other: &Interval) -> bool {
-        self.lower <= other.lower && other.upper <= self.upper
+    pub fn contains(&self, other: &Interval) -> TruthValue {
+        if self.lower <= other.lower && other.upper <= self.upper {
+            TruthValue::True
+        } else {
+            TruthValue::False
+        }
     }
 }
 

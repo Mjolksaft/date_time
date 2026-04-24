@@ -2,10 +2,12 @@ pub mod time_point;
 pub mod precision;
 pub mod interval;
 pub mod util;
+pub mod truth_values;
 
 use crate::time_point::{TimePoint, time_point};
 use crate::precision::Precision;
 use crate::interval::{Interval, interval};
+use crate::truth_values::TruthValue;
 
 
 #[cfg(test)] // done 
@@ -44,7 +46,7 @@ mod interval_tests {
     fn to_interval_day_to_day() {
         let start = time_point("2027-04-10").unwrap();
 
-        let result = to_interval(&start, None);
+        let result = to_interval(&start, None).unwrap();
 
         assert_eq!(
             result,
@@ -167,7 +169,7 @@ mod normalization_tests {
     
     #[test]
     fn normalizes_year_to_interval() {
-        let result = to_interval(&time_point("2027").unwrap(), None);
+        let result = to_interval(&time_point("2027").unwrap(), None).unwrap();
 
         assert_eq!(
             result,
@@ -190,7 +192,7 @@ mod normalization_tests {
 
     #[test]
     fn normalizes_month_to_interval() {
-        let result = to_interval(&time_point("2027-04").unwrap(), None);
+        let result = to_interval(&time_point("2027-04").unwrap(), None).unwrap();
 
         assert_eq!(
             result,
@@ -213,7 +215,7 @@ mod normalization_tests {
 
     #[test]
     fn normalizes_day_to_interval() {
-        let result = to_interval(&time_point("2027-04-20").unwrap(), None);
+        let result = to_interval(&time_point("2027-04-20").unwrap(), None).unwrap();
 
         assert_eq!(
             result,
@@ -245,7 +247,7 @@ mod equals_tests {
         let a = time_point("2027").unwrap();
         let b = time_point("2027").unwrap();
 
-        assert!(a.equals(&b));
+        assert_eq!(a.equals(&b).unwrap(), TruthValue::True);
     }
 
     #[test]
@@ -253,7 +255,7 @@ mod equals_tests {
         let a = time_point("2027").unwrap();
         let b = time_point("2027-01-01").unwrap();
 
-        assert!(!a.equals(&b));
+        assert_eq!(a.equals(&b).unwrap(), TruthValue::False);
     }
 
     #[test]
@@ -261,7 +263,7 @@ mod equals_tests {
         let a = time_point("2027-04").unwrap();
         let b = time_point("2027-04").unwrap();
 
-        assert!(a.equals(&b));
+        assert_eq!(a.equals(&b).unwrap(), TruthValue::True);
     }
 }
 
@@ -274,7 +276,7 @@ mod before_tests {
         let a = time_point("2027-01-01").unwrap();
         let b = time_point("2027-01-02").unwrap();
 
-        assert!(a.before(&b));
+        assert_eq!(a.before(&b).unwrap(), TruthValue::True);
     }
 
     #[test]
@@ -282,7 +284,7 @@ mod before_tests {
         let a = time_point("2027-04").unwrap();
         let b = time_point("2027-05").unwrap();
 
-        assert!(a.before(&b));
+        assert_eq!(a.before(&b).unwrap(), TruthValue::True);
     }
 
     #[test]
@@ -290,7 +292,7 @@ mod before_tests {
         let a = time_point("2027").unwrap();
         let b = time_point("2027-04").unwrap();
 
-        assert!(!a.before(&b));
+        assert_eq!(a.before(&b).unwrap(), TruthValue::False);
     }
 
 }
@@ -306,7 +308,7 @@ mod after_tests {
         let a = time_point("2027-01-02").unwrap();
         let b = time_point("2027-01-01").unwrap();
 
-        assert!(a.after(&b));
+        assert_eq!(a.after(&b).unwrap(), TruthValue::True);
     }
 
     #[test]
@@ -314,7 +316,7 @@ mod after_tests {
         let a = time_point("2027-05").unwrap();
         let b = time_point("2027-04").unwrap();
 
-        assert!(a.after(&b));
+        assert_eq!(a.after(&b).unwrap(), TruthValue::True);
     }
 
     #[test]
@@ -322,7 +324,7 @@ mod after_tests {
         let a = time_point("2027-04").unwrap();
         let b = time_point("2027").unwrap();
 
-        assert!(!a.after(&b));
+        assert_eq!(a.after(&b).unwrap(), TruthValue::False);
     }
 
     
@@ -339,10 +341,10 @@ mod contains_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-01-05").unwrap();
 
-        let interval_a = to_interval(&a,None);
-        let interval_b = to_interval(&b,None);
+        let interval_a = to_interval(&a,None).unwrap();
+        let interval_b = to_interval(&b,None).unwrap();
 
-        assert!(interval_a.contains(&interval_b));
+        assert_eq!(interval_a.contains(&interval_b), TruthValue::True);
     }
 
         #[test]
@@ -350,10 +352,10 @@ mod contains_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-02").unwrap();           
 
-        let interval_a = to_interval(&a, None);
-        let interval_b = to_interval(&b, None);
+        let interval_a = to_interval(&a, None).unwrap();
+        let interval_b = to_interval(&b, None).unwrap();
 
-        assert!(!interval_a.contains(&interval_b));
+        assert_eq!(interval_a.contains(&interval_b), TruthValue::False);
     }
 
     #[test ]
@@ -361,10 +363,10 @@ mod contains_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-01").unwrap();           
 
-        let interval_a = to_interval(&a, None);
-        let interval_b = to_interval(&b, None);
+        let interval_a = to_interval(&a, None).unwrap();
+        let interval_b = to_interval(&b, None).unwrap();
 
-        assert!(interval_a.contains(&interval_b));
+        assert_eq!(interval_a.contains(&interval_b), TruthValue::True);
     }
 }
 
@@ -379,10 +381,10 @@ mod overlaps_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-01-05").unwrap();
 
-        let interval_a = to_interval(&a, None);
-        let interval_b = to_interval(&b, None);
+        let interval_a = to_interval(&a, None).unwrap();
+        let interval_b = to_interval(&b, None).unwrap();
 
-        assert!(interval_a.overlaps(&interval_b));
+        assert_eq!(interval_a.overlaps(&interval_b), TruthValue::True);
     }
 
     #[test] 
@@ -390,10 +392,10 @@ mod overlaps_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-02").unwrap();           
 
-        let interval_a = to_interval(&a, None);
-        let interval_b = to_interval(&b, None);
+        let interval_a = to_interval(&a, None).unwrap();
+        let interval_b = to_interval(&b, None).unwrap();
 
-        assert!(!interval_a.overlaps(&interval_b));
+        assert_eq!(interval_a.overlaps(&interval_b), TruthValue::False);
     }
 
     #[test ]
@@ -401,9 +403,9 @@ mod overlaps_tests {
         let a = time_point("2027-01").unwrap();
         let b = time_point("2027-01").unwrap();           
 
-        let interval_a = to_interval(&a, None);
-        let interval_b = to_interval(&b, None);
+        let interval_a = to_interval(&a, None).unwrap();
+        let interval_b = to_interval(&b, None).unwrap();
 
-        assert!(interval_a.overlaps(&interval_b));
+        assert_eq!(interval_a.overlaps(&interval_b), TruthValue::True);
     }
 }
