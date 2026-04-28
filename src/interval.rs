@@ -3,10 +3,12 @@ use crate::precision::Precision;
 use crate::truth_values::TruthValue;
 use crate::util::{days_in_month};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Interval {
     pub lower: TimePoint,
     pub upper: TimePoint,
+    pub lower_key: u32,
+    pub upper_key: u32,
 }
 
 pub fn interval(lower: &TimePoint, upper: &TimePoint) -> Result<Interval, String> {
@@ -14,7 +16,7 @@ pub fn interval(lower: &TimePoint, upper: &TimePoint) -> Result<Interval, String
         return Err(String::from("Lower bound must be less than or equal to upper bound"));
     }
 
-    Ok(Interval { lower: lower.clone(), upper: upper.clone()})
+    Ok(Interval::new(lower.clone(), upper.clone()))
 }
 
 pub fn calculate_upper(lower: &TimePoint) -> TimePoint {
@@ -89,15 +91,32 @@ pub fn to_interval(lower: &TimePoint, upper: Option<&TimePoint>) -> Result<Inter
         None => calculate_upper(lower),
     };
 
-    Ok(Interval {
-        lower: lower.clone(),
-        upper,
-    })
+    Ok(Interval::new(lower.clone(), upper))
 }
 
 impl Interval {
+    pub fn new(lower: TimePoint, upper: TimePoint) -> Self {
+        let lower_key = lower.boundary_key();
+        let upper_key = upper.boundary_key();
+
+        Self {
+            lower,
+            upper,
+            lower_key,
+            upper_key,
+        }
+    }
+    
+    pub fn lower_key(&self) -> u32 {
+        self.lower.boundary_key()
+    }
+
+    pub fn upper_key(&self) -> u32 {
+        self.upper.boundary_key()
+    }
+        
     pub fn before(&self, other: &Interval) -> TruthValue {
-        if self.upper <= other.lower {
+        if self.upper_key <= other.lower_key {
             TruthValue::True
         } else {
             TruthValue::False
@@ -105,23 +124,7 @@ impl Interval {
     }
 
     pub fn after(&self, other: &Interval) -> TruthValue {
-        if self.lower >= other.upper {
-            TruthValue::True
-        } else {
-            TruthValue::False
-        }
-    }
-
-pub fn equals(&self, other: &Interval) -> TruthValue {
-    if self.lower == other.lower && self.upper == other.upper {
-        TruthValue::True
-    } else {
-        TruthValue::False
-    }
-}
-
-    pub fn overlaps(&self, other: &Interval) -> TruthValue {
-        if self.lower < other.upper && self.upper > other.lower {
+        if self.lower_key >= other.upper_key {
             TruthValue::True
         } else {
             TruthValue::False
@@ -129,7 +132,23 @@ pub fn equals(&self, other: &Interval) -> TruthValue {
     }
 
     pub fn contains(&self, other: &Interval) -> TruthValue {
-        if self.lower <= other.lower && other.upper <= self.upper {
+        if self.lower_key <= other.lower_key && other.upper_key <= self.upper_key {
+            TruthValue::True
+        } else {
+            TruthValue::False
+        }
+    }
+
+    pub fn overlaps(&self, other: &Interval) -> TruthValue {
+        if self.lower_key < other.upper_key && other.lower_key < self.upper_key {
+            TruthValue::True
+        } else {
+            TruthValue::False
+        }
+    }
+
+    pub fn equals(&self, other: &Interval) -> TruthValue {
+        if self.lower_key == other.lower_key && self.upper_key == other.upper_key {
             TruthValue::True
         } else {
             TruthValue::False

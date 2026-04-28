@@ -77,6 +77,13 @@ impl PartialOrd for TimePoint {
 }
 
 impl TimePoint {
+    pub fn boundary_key(&self) -> u32 {
+        encode_date(self.year, self.month, self.day)
+    }
+}
+
+
+impl TimePoint {
     pub fn equals(&self, other: &TimePoint) -> Result<TruthValue, String> {
         let a = to_interval(self, None)?;
         let b = to_interval(other, None)?;
@@ -111,4 +118,21 @@ impl TimePoint {
 
         Ok(a.overlaps(&b))
     }
+}
+
+
+pub fn encode_date(year: u32, month: u32, day: u32) -> u32 {
+    (year << 9) | (month << 5) | day
+}
+
+pub fn decode_year(encoded: u32) -> u32 {
+    encoded >> 9
+}
+
+pub fn decode_month(encoded: u32) -> u32 {
+    (encoded >> 5) & 0b1111
+}
+
+pub fn decode_day(encoded: u32) -> u32 {
+    encoded & 0b11111
 }

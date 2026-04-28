@@ -4,11 +4,37 @@ pub mod interval;
 pub mod util;
 pub mod truth_values;
 
-use crate::time_point::{TimePoint, time_point};
+use crate::time_point::{TimePoint, time_point, encode_date, decode_year, decode_month, decode_day};
 use crate::precision::Precision;
 use crate::interval::{Interval, interval};
 use crate::truth_values::TruthValue;
 
+
+#[cfg(test)]
+mod encode_decode_tests {
+    use super::*;
+    
+    #[test]
+    fn encodes_and_decodes_date_key() {
+        let encoded = encode_date(2027, 4, 10);
+
+        assert_eq!(decode_year(encoded), 2027);
+        assert_eq!(decode_month(encoded), 4);
+        assert_eq!(decode_day(encoded), 10);
+    }
+
+    #[test]
+    fn encoded_keys_preserve_order() {
+        let a = encode_date(2027, 4, 10);
+        let b = encode_date(2027, 4, 11);
+        let c = encode_date(2027, 5, 1);
+        let d = encode_date(2028, 1, 1);
+
+        assert!(a < b);
+        assert!(b < c);
+        assert!(c < d);
+    }
+}
 
 #[cfg(test)] // done 
 mod interval_tests {
@@ -25,20 +51,7 @@ mod interval_tests {
 
         assert_eq!(
             result,
-            Interval {
-                lower: TimePoint {
-                    year: 2027,
-                    month: 4,
-                    day: 10,
-                    precision: Precision::Day,
-                },
-                upper: TimePoint {
-                    year: 2027,
-                    month: 4,
-                    day: 12,
-                    precision: Precision::Day,
-                }
-            }
+            Interval::new(TimePoint { year: 2027, month: 4, day: 10, precision: Precision::Day}, TimePoint { year: 2027, month: 4, day: 12, precision: Precision::Day  })
         );
     }
 
@@ -50,20 +63,17 @@ mod interval_tests {
 
         assert_eq!(
             result,
-            Interval {
-                lower: TimePoint {
+            Interval::new(TimePoint {
                     year: 2027,
                     month: 4,
                     day: 10,
                     precision: Precision::Day,
-                },
-                upper: TimePoint {
+                }, TimePoint {
                     year: 2027,
                     month: 4,
                     day: 11,
                     precision: Precision::Day,
-                }
-            }
+                })
         );
     }
 }
@@ -173,20 +183,17 @@ mod normalization_tests {
 
         assert_eq!(
             result,
-            Interval {
-                lower: TimePoint {
+            Interval::new(TimePoint {
                     year: 2027,
                     month: 1,
                     day: 1,
                     precision: Precision::Year,
-                },
-                upper: TimePoint {
+                }, TimePoint {
                     year: 2028,
                     month: 1,
                     day: 1,
                     precision: Precision::Year,
-                }
-            }
+                })
         );
     }
 
@@ -196,20 +203,20 @@ mod normalization_tests {
 
         assert_eq!(
             result,
-            Interval {
-                lower: TimePoint {
+            Interval::new(
+                TimePoint {
                     year: 2027,
                     month: 4,
                     day: 1,
                     precision: Precision::Month,
                 },
-                upper: TimePoint {
+                TimePoint {
                     year: 2027,
                     month: 5,
                     day: 1,
                     precision: Precision::Month,
                 }
-            }
+            )
         );
     }
 
@@ -219,20 +226,20 @@ mod normalization_tests {
 
         assert_eq!(
             result,
-            Interval {
-                lower: TimePoint {
+            Interval::new(
+                TimePoint {
                     year: 2027,
                     month: 4,
                     day: 20,
                     precision: Precision::Day,
                 },
-                upper: TimePoint {
+                TimePoint {
                     year: 2027,
                     month: 4,
                     day: 21,
                     precision: Precision::Day,
                 }
-            }
+            )
         );
     }
 
