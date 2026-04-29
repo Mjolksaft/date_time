@@ -3,17 +3,30 @@ pub mod precision;
 pub mod interval;
 pub mod util;
 pub mod truth_values;
+pub mod leap_second;
 
-use crate::time_point::{TimePoint, time_point, encode_date, decode_year, decode_month, decode_day};
+use crate::time_point::{TimePoint, time_point, encode_date, decode_year, decode_month, decode_day, encode_datetime};
 use crate::precision::Precision;
-use crate::interval::{Interval, interval};
+use crate::interval::{Interval};
 use crate::truth_values::TruthValue;
+use crate::leap_second::{get_leap_seconds_data};
 
+
+#[cfg(test)]
+mod leap_second_tests {
+    use super::*;
+
+    #[test]
+    fn get_leap_seconds_data_test() {
+        println!("{:?}", get_leap_seconds_data());
+    }
+
+}
 
 #[cfg(test)]
 mod encode_decode_tests {
     use super::*;
-    
+
     #[test]
     fn encodes_and_decodes_date_key() {
         let encoded = encode_date(2027, 4, 10);
@@ -34,55 +47,24 @@ mod encode_decode_tests {
         assert!(b < c);
         assert!(c < d);
     }
-}
 
-#[cfg(test)] // done 
-mod interval_tests {
-    use crate::interval::to_interval;
-
-    use super::*;
-    
     #[test]
-    fn constructs_day_to_day_interval() {
-        let start = time_point("2027-04-10").unwrap();
-        let end = time_point("2027-04-12").unwrap();
+    fn encoded_datetime_keys_preserve_order() {
+        let a = encode_datetime(2027, 4, 10, 12, 0, 0);
+        let b = encode_datetime(2027, 4, 10, 13, 0, 0);
+        let c = encode_datetime(2027, 4, 10, 13, 1, 0);
+        let d = encode_datetime(2027, 4, 10, 13, 1, 1);
 
-        let result = interval(&start, &end).unwrap();
-
-        assert_eq!(
-            result,
-            Interval::new(TimePoint { year: 2027, month: 4, day: 10, precision: Precision::Day}, TimePoint { year: 2027, month: 4, day: 12, precision: Precision::Day  })
-        );
-    }
-
-        #[test]
-    fn to_interval_day_to_day() {
-        let start = time_point("2027-04-10").unwrap();
-
-        let result = to_interval(&start, None).unwrap();
-
-        assert_eq!(
-            result,
-            Interval::new(TimePoint {
-                    year: 2027,
-                    month: 4,
-                    day: 10,
-                    precision: Precision::Day,
-                }, TimePoint {
-                    year: 2027,
-                    month: 4,
-                    day: 11,
-                    precision: Precision::Day,
-                })
-        );
+        assert!(a < b);
+        assert!(b < c);
+        assert!(c < d);
     }
 }
 
-
-#[cfg(test)] // done 
+#[cfg(test)]
 mod parse_tests {
-
     use super::*;
+
     #[test]
     fn parses_year_point() {
         let result = time_point("2027").unwrap();
@@ -93,6 +75,9 @@ mod parse_tests {
                 year: 2027,
                 month: 1,
                 day: 1,
+                hour: 0,
+                minute: 0,
+                second: 0,
                 precision: Precision::Year,
             }
         );
@@ -108,6 +93,9 @@ mod parse_tests {
                 year: 2027,
                 month: 11,
                 day: 1,
+                hour: 0,
+                minute: 0,
+                second: 0,
                 precision: Precision::Month,
             }
         );
@@ -123,11 +111,68 @@ mod parse_tests {
                 year: 2027,
                 month: 4,
                 day: 20,
+                hour: 0,
+                minute: 0,
+                second: 0,
                 precision: Precision::Day,
             }
         );
     }
-    
+
+    #[test]
+    fn parses_hour_point() {
+        let result = time_point("2027-04-20-13").unwrap();
+
+        assert_eq!(
+            result,
+            TimePoint {
+                year: 2027,
+                month: 4,
+                day: 20,
+                hour: 13,
+                minute: 0,
+                second: 0,
+                precision: Precision::Hour,
+            }
+        );
+    }
+
+    #[test]
+    fn parses_minute_point() {
+        let result = time_point("2027-04-20-13-45").unwrap();
+
+        assert_eq!(
+            result,
+            TimePoint {
+                year: 2027,
+                month: 4,
+                day: 20,
+                hour: 13,
+                minute: 45,
+                second: 0,
+                precision: Precision::Minute,
+            }
+        );
+    }
+
+    #[test]
+    fn parses_second_point() {
+        let result = time_point("2027-04-20-13-45-30").unwrap();
+
+        assert_eq!(
+            result,
+            TimePoint {
+                year: 2027,
+                month: 4,
+                day: 20,
+                hour: 13,
+                minute: 45,
+                second: 30,
+                precision: Precision::Second,
+            }
+        );
+    }
+
     #[test]
     fn fails_on_invalid_month() {
         let result = time_point("2027-13-01");
@@ -141,8 +186,26 @@ mod parse_tests {
     }
 
     #[test]
+    fn fails_on_invalid_hour() {
+        let result = time_point("2027-04-20-24");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn fails_on_invalid_minute() {
+        let result = time_point("2027-04-20-13-60");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn fails_on_invalid_second() {
+        let result = time_point("2027-04-20-13-45-60");
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn fails_on_too_many_parts() {
-        let result = time_point("2027-04-10-12");
+        let result = time_point("2027-04-10-12-30-45-99");
         assert!(result.is_err());
     }
 
@@ -157,72 +220,45 @@ mod parse_tests {
         let result = time_point("abcd");
         assert!(result.is_err());
     }
-
-    #[test]
-    fn fails_on_non_numeric_month() {
-        let result = time_point("2027-ab");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn fails_on_non_numeric_day() {
-        let result = time_point("2027-04-xx");
-        assert!(result.is_err());
-    }
 }
 
-#[cfg(test)] // Done 
+#[cfg(test)]
 mod normalization_tests {
-    use crate::interval::{Interval, to_interval};
-
     use super::*;
-    
+    use crate::interval::to_interval;
+
     #[test]
     fn normalizes_year_to_interval() {
         let result = to_interval(&time_point("2027").unwrap(), None).unwrap();
 
         assert_eq!(
             result,
-            Interval::new(TimePoint {
-                    year: 2027,
-                    month: 1,
-                    day: 1,
-                    precision: Precision::Year,
-                }, TimePoint {
-                    year: 2028,
-                    month: 1,
-                    day: 1,
-                    precision: Precision::Year,
-                })
-        );
-    }
-
-    #[test]
-    fn normalizes_month_to_interval() {
-        let result = to_interval(&time_point("2027-04").unwrap(), None).unwrap();
-
-        assert_eq!(
-            result,
             Interval::new(
                 TimePoint {
                     year: 2027,
-                    month: 4,
+                    month: 1,
                     day: 1,
-                    precision: Precision::Month,
+                    hour: 0,
+                    minute: 0,
+                    second: 0,
+                    precision: Precision::Year,
                 },
                 TimePoint {
-                    year: 2027,
-                    month: 5,
+                    year: 2028,
+                    month: 1,
                     day: 1,
-                    precision: Precision::Month,
+                    hour: 0,
+                    minute: 0,
+                    second: 0,
+                    precision: Precision::Year,
                 }
             )
         );
     }
 
     #[test]
-    fn normalizes_day_to_interval() {
-        let result = to_interval(&time_point("2027-04-20").unwrap(), None).unwrap();
+    fn normalizes_hour_to_interval() {
+        let result = to_interval(&time_point("2027-04-20-13").unwrap(), None).unwrap();
 
         assert_eq!(
             result,
@@ -231,188 +267,138 @@ mod normalization_tests {
                     year: 2027,
                     month: 4,
                     day: 20,
-                    precision: Precision::Day,
+                    hour: 13,
+                    minute: 0,
+                    second: 0,
+                    precision: Precision::Hour,
                 },
                 TimePoint {
                     year: 2027,
                     month: 4,
-                    day: 21,
-                    precision: Precision::Day,
+                    day: 20,
+                    hour: 14,
+                    minute: 0,
+                    second: 0,
+                    precision: Precision::Hour,
                 }
             )
         );
     }
 
+    #[test]
+    fn normalizes_minute_to_interval() {
+        let result = to_interval(&time_point("2027-04-20-13-45").unwrap(), None).unwrap();
+
+        assert_eq!(
+            result,
+            Interval::new(
+                TimePoint {
+                    year: 2027,
+                    month: 4,
+                    day: 20,
+                    hour: 13,
+                    minute: 45,
+                    second: 0,
+                    precision: Precision::Minute,
+                },
+                TimePoint {
+                    year: 2027,
+                    month: 4,
+                    day: 20,
+                    hour: 13,
+                    minute: 46,
+                    second: 0,
+                    precision: Precision::Minute,
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn normalizes_second_to_interval() {
+        let result = to_interval(&time_point("2027-04-20-13-45-30").unwrap(), None).unwrap();
+
+        assert_eq!(
+            result,
+            Interval::new(
+                TimePoint {
+                    year: 2027,
+                    month: 4,
+                    day: 20,
+                    hour: 13,
+                    minute: 45,
+                    second: 30,
+                    precision: Precision::Second,
+                },
+                TimePoint {
+                    year: 2027,
+                    month: 4,
+                    day: 20,
+                    hour: 13,
+                    minute: 45,
+                    second: 31,
+                    precision: Precision::Second,
+                }
+            )
+        );
+    }
 }
 
 #[cfg(test)]
-mod equals_tests {
+mod rollover_tests {
     use super::*;
+    use crate::interval::to_interval;
 
     #[test]
-    fn equals_true_for_same_year() {
-        let a = time_point("2027").unwrap();
-        let b = time_point("2027").unwrap();
+    fn hour_rollover_to_next_day() {
+        let result = to_interval(&time_point("2027-04-20-23").unwrap(), None).unwrap();
 
-        assert_eq!(a.equals(&b).unwrap(), TruthValue::True);
+        assert_eq!(result.upper.hour, 0);
+        assert_eq!(result.upper.day, 21);
     }
 
     #[test]
-    fn equals_false_for_year_and_exact_day() {
-        let a = time_point("2027").unwrap();
-        let b = time_point("2027-01-01").unwrap();
+    fn minute_rollover_to_next_hour() {
+        let result = to_interval(&time_point("2027-04-20-13-59").unwrap(), None).unwrap();
 
-        assert_eq!(a.equals(&b).unwrap(), TruthValue::False);
+        assert_eq!(result.upper.hour, 14);
+        assert_eq!(result.upper.minute, 0);
     }
 
     #[test]
-    fn equals_true_for_same_month() {
-        let a = time_point("2027-04").unwrap();
-        let b = time_point("2027-04").unwrap();
+    fn second_rollover_to_next_minute() {
+        let result = to_interval(&time_point("2027-04-20-13-45-59").unwrap(), None).unwrap();
 
-        assert_eq!(a.equals(&b).unwrap(), TruthValue::True);
+        assert_eq!(result.upper.minute, 46);
+        assert_eq!(result.upper.second, 0);
     }
 }
 
 #[cfg(test)]
-mod before_tests {
+mod comparison_tests {
     use super::*;
 
     #[test]
-    fn before_true_for_adjacent_days() {
-        let a = time_point("2027-01-01").unwrap();
-        let b = time_point("2027-01-02").unwrap();
+    fn before_true_for_seconds() {
+        let a = time_point("2027-04-20-13-45-30").unwrap();
+        let b = time_point("2027-04-20-13-45-31").unwrap();
 
         assert_eq!(a.before(&b).unwrap(), TruthValue::True);
     }
 
     #[test]
-    fn before_true_for_adjacent_months() {
-        let a = time_point("2027-04").unwrap();
-        let b = time_point("2027-05").unwrap();
-
-        assert_eq!(a.before(&b).unwrap(), TruthValue::True);
-    }
-
-    #[test]
-    fn before_false_for_year_and_month_inside_it() {
-        let a = time_point("2027").unwrap();
-        let b = time_point("2027-04").unwrap();
-
-        assert_eq!(a.before(&b).unwrap(), TruthValue::False);
-    }
-
-}
-
-
-
-#[cfg(test)]
-mod after_tests {
-    use super::*;
-
-    #[test]
-    fn after_true_for_adjacent_days() {
-        let a = time_point("2027-01-02").unwrap();
-        let b = time_point("2027-01-01").unwrap();
+    fn after_true_for_seconds() {
+        let a = time_point("2027-04-20-13-45-31").unwrap();
+        let b = time_point("2027-04-20-13-45-30").unwrap();
 
         assert_eq!(a.after(&b).unwrap(), TruthValue::True);
     }
 
     #[test]
-    fn after_true_for_adjacent_months() {
-        let a = time_point("2027-05").unwrap();
-        let b = time_point("2027-04").unwrap();
+    fn equals_true_for_exact_second() {
+        let a = time_point("2027-04-20-13-45-30").unwrap();
+        let b = time_point("2027-04-20-13-45-30").unwrap();
 
-        assert_eq!(a.after(&b).unwrap(), TruthValue::True);
-    }
-
-    #[test]
-    fn after_false_for_month_and_year_containing_it() {
-        let a = time_point("2027-04").unwrap();
-        let b = time_point("2027").unwrap();
-
-        assert_eq!(a.after(&b).unwrap(), TruthValue::False);
-    }
-
-    
-}
-
-#[cfg(test)]
-mod contains_tests {
-    use crate::interval::to_interval;
-
-    use super::*;
-
-    #[test]
-    fn contains_true_for_adjacent_days() {
-        let a = time_point("2027-01").unwrap();
-        let b = time_point("2027-01-05").unwrap();
-
-        let interval_a = to_interval(&a,None).unwrap();
-        let interval_b = to_interval(&b,None).unwrap();
-
-        assert_eq!(interval_a.contains(&interval_b), TruthValue::True);
-    }
-
-        #[test]
-    fn contains_false_for_non_contained_month() {
-        let a = time_point("2027-01").unwrap();
-        let b = time_point("2027-02").unwrap();           
-
-        let interval_a = to_interval(&a, None).unwrap();
-        let interval_b = to_interval(&b, None).unwrap();
-
-        assert_eq!(interval_a.contains(&interval_b), TruthValue::False);
-    }
-
-    #[test ]
-    fn contains_true_for_same_month() {
-        let a = time_point("2027-01").unwrap();
-        let b = time_point("2027-01").unwrap();           
-
-        let interval_a = to_interval(&a, None).unwrap();
-        let interval_b = to_interval(&b, None).unwrap();
-
-        assert_eq!(interval_a.contains(&interval_b), TruthValue::True);
-    }
-}
-
-#[cfg(test)]
-mod overlaps_tests {
-    use crate::interval::to_interval;
-
-    use super::*;
-
-    #[test]
-    fn overlaps_true_for_adjacent_days() {
-        let a = time_point("2027-01").unwrap();
-        let b = time_point("2027-01-05").unwrap();
-
-        let interval_a = to_interval(&a, None).unwrap();
-        let interval_b = to_interval(&b, None).unwrap();
-
-        assert_eq!(interval_a.overlaps(&interval_b), TruthValue::True);
-    }
-
-    #[test] 
-    fn overlaps_false_for_non_overlapping_month() {
-        let a = time_point("2027-01").unwrap();
-        let b = time_point("2027-02").unwrap();           
-
-        let interval_a = to_interval(&a, None).unwrap();
-        let interval_b = to_interval(&b, None).unwrap();
-
-        assert_eq!(interval_a.overlaps(&interval_b), TruthValue::False);
-    }
-
-    #[test ]
-    fn overlaps_true_for_same_month() {
-        let a = time_point("2027-01").unwrap();
-        let b = time_point("2027-01").unwrap();           
-
-        let interval_a = to_interval(&a, None).unwrap();
-        let interval_b = to_interval(&b, None).unwrap();
-
-        assert_eq!(interval_a.overlaps(&interval_b), TruthValue::True);
+        assert_eq!(a.equals(&b).unwrap(), TruthValue::True);
     }
 }

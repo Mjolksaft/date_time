@@ -10,6 +10,9 @@ pub struct TimePoint {
     pub year: u32,
     pub month: u32,
     pub day: u32,
+    pub hour: u32,
+    pub minute: u32,
+    pub second: u32,
     pub precision: Precision,
 }
 
@@ -34,6 +37,9 @@ pub fn time_point(input: &str) -> Result<TimePoint, String> {
             year: parsed_date[0],
             month: 1,
             day: 1,
+            hour: 0,
+            minute: 0,
+            second: 0,
             precision: Precision::Year,
         }),
 
@@ -44,9 +50,12 @@ pub fn time_point(input: &str) -> Result<TimePoint, String> {
                 year: parsed_date[0],
                 month: parsed_date[1],
                 day: 1,
+                hour: 0,
+                minute: 0,
+                second: 0,
                 precision: Precision::Month,
             })
-        }
+        },
 
         3 => {
             valid_date(parsed_date[0], Some(parsed_date[1]), Some(parsed_date[2]))?;
@@ -55,7 +64,76 @@ pub fn time_point(input: &str) -> Result<TimePoint, String> {
                 year: parsed_date[0],
                 month: parsed_date[1],
                 day: parsed_date[2],
+                hour: 0,
+                minute: 0,
+                second: 0,
                 precision: Precision::Day,
+            })
+        },
+
+        4 => {
+            valid_date(parsed_date[0], Some(parsed_date[1]), Some(parsed_date[2]))?;
+
+            if parsed_date[3] > 23 {
+                return Err(String::from("Invalid hour"));
+            }
+
+            Ok(TimePoint {
+                year: parsed_date[0],
+                month: parsed_date[1],
+                day: parsed_date[2],
+                hour: parsed_date[3],
+                minute: 0,
+                second: 0,
+                precision: Precision::Hour,
+            })
+        }
+
+        5 => {
+            valid_date(parsed_date[0], Some(parsed_date[1]), Some(parsed_date[2]))?;
+
+            if parsed_date[3] > 23 {
+                return Err(String::from("Invalid hour"));
+            }
+
+            if parsed_date[4] > 59 {
+                return Err(String::from("Invalid minute"));
+            }
+
+            Ok(TimePoint {
+                year: parsed_date[0],
+                month: parsed_date[1],
+                day: parsed_date[2],
+                hour: parsed_date[3],
+                minute: parsed_date[4],
+                second: 0,
+                precision: Precision::Minute,
+            })
+        }
+
+        6 => {
+            valid_date(parsed_date[0], Some(parsed_date[1]), Some(parsed_date[2]))?;
+
+            if parsed_date[3] > 23 {
+                return Err(String::from("Invalid hour"));
+            }
+
+            if parsed_date[4] > 59 {
+                return Err(String::from("Invalid minute"));
+            }
+
+            if parsed_date[5] > 59 {
+                return Err(String::from("Invalid second"));
+            }
+
+            Ok(TimePoint {
+                year: parsed_date[0],
+                month: parsed_date[1],
+                day: parsed_date[2],
+                hour: parsed_date[3],
+                minute: parsed_date[4],
+                second: parsed_date[5],
+                precision: Precision::Second,
             })
         }
 
@@ -65,8 +143,22 @@ pub fn time_point(input: &str) -> Result<TimePoint, String> {
 
 impl Ord for TimePoint {
     fn cmp(&self, other: &Self) -> Ordering {
-        (self.year, self.month, self.day)
-            .cmp(&(other.year, other.month, other.day))
+        (
+            self.year,
+            self.month,
+            self.day,
+            self.hour,
+            self.minute,
+            self.second,
+        )
+            .cmp(&(
+                other.year,
+                other.month,
+                other.day,
+                other.hour,
+                other.minute,
+                other.second,
+            ))
     }
 }
 
@@ -77,11 +169,17 @@ impl PartialOrd for TimePoint {
 }
 
 impl TimePoint {
-    pub fn boundary_key(&self) -> u32 {
-        encode_date(self.year, self.month, self.day)
+    pub fn boundary_key(&self) -> u64 {
+        encode_datetime(
+            self.year,
+            self.month,
+            self.day,
+            self.hour,
+            self.minute,
+            self.second,
+        )
     }
 }
-
 
 impl TimePoint {
     pub fn equals(&self, other: &TimePoint) -> Result<TruthValue, String> {
@@ -135,4 +233,20 @@ pub fn decode_month(encoded: u32) -> u32 {
 
 pub fn decode_day(encoded: u32) -> u32 {
     encoded & 0b11111
+}
+
+pub fn encode_datetime(
+    year: u32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+) -> u64 {
+    ((year as u64) << 26)
+        | ((month as u64) << 22)
+        | ((day as u64) << 17)
+        | ((hour as u64) << 12)
+        | ((minute as u64) << 6)
+        | second as u64
 }

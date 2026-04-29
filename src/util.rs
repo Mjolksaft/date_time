@@ -34,3 +34,35 @@ pub fn valid_date(year: u32, month: Option<u32>, day: Option<u32>,) -> Result<()
 
     Ok(())
 }
+
+pub fn parse_month(m: &str) -> Option<u32> {
+    match m {
+        "Jan" => Some(1),
+        "Feb" => Some(2),
+        "Mar" => Some(3),
+        "Apr" => Some(4),
+        "May" => Some(5),
+        "Jun" => Some(6),
+        "Jul" => Some(7),
+        "Aug" => Some(8),
+        "Sep" => Some(9),
+        "Oct" => Some(10),
+        "Nov" => Some(11),
+        "Dec" => Some(12),
+        _ => None,
+    }
+}
+
+pub fn previous_day(year: u32, month: u32, day: u32) -> (u32, u32, u32) {
+    if day > 1 {
+        (year, month, day - 1)
+    } else {
+        if month == 1 {
+            (year - 1, 12, 31)
+        } else {
+            let prev_month = month - 1;
+            let last_day = days_in_month(year, prev_month);
+            (year, prev_month, last_day)
+        }
+    }
+}

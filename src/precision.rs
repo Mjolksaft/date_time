@@ -3,4 +3,7 @@ pub enum Precision {
     Year,
     Month,
     Day,
+    Hour,
+    Minute,
+    Second,
 }
