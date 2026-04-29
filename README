@@ -1,33 +1,81 @@
-"2027"
-[2027-01-01, 2028-01-01)
+## Date-time construction
 
-"2027-04"
-[2027-04-01, 2027-05-01)
+- Create `TimePoint` values from structured arguments
+- Missing fields are filled as lower-bound defaults
+  - year → January 1st, 00:00:00
+  - month → day 1, 00:00:00
+  - day → 00:00:00
+  - hour → minute 0, second 0
+  - minute → second 0
+- Precision is inferred from provided arguments
+- Full validation of date and time components
 
-"2027-04-10"
-[2027-04-10, 2027-04-11)
+## String parsing
 
-2027-04-10 to 2027-04-12
-[2027-04-10, 2027-04-12)
+- Parse string input into `TimePoint`
+- Supports variable precision (year → second)
+- Rejects invalid formats and values
 
-2027-04 to 2027-06
-[2027-04-01, 2027-07-01)
+## Current time
 
-2027 equals 2027 → True
-2027 equals 2027-01-01 → False
-2027-04 equals 2027-04 → True
+- Retrieve current UTC time (`TimePoint::now_utc`)
+- Always returns second-level precision
 
-2027-04 before 2027-05 → True
-2027 before 2027-04 → False
-2027-04-10 before 2027-04-11 → True
+## Precision model
 
-2027-05 after 2027-04 → True
-2027-04 after 2027 → False
+- Explicit precision levels:
+  - Year
+  - Month
+  - Day
+  - Hour
+  - Minute
+  - Second
+- Precision determines semantic meaning and interval size
 
-2027 contains 2027-04 → True
-2027-04 contains 2027-04-10 → True
-2027-04-10 contains 2027-04 → False
+## Interval normalization
 
-2027 overlaps 2027-04 → True
-2027-04 overlaps 2027-04-10 → True
-2027-04 overlaps 2027-05 → False
+- Convert `TimePoint` to `Interval`
+- Represent time as half-open interval `[lower, upper)`
+- Automatically compute upper bound based on precision
+
+## Temporal comparison
+
+- All comparisons are interval-based
+- Supported operations:
+  - before
+  - after
+  - equals
+  - contains
+  - overlaps
+
+## Ordering
+
+- Implements `Ord` and `PartialOrd`
+- Lexicographic comparison including time components
+
+## Encoding
+
+- Encode date into compact integer representation
+- Encode full datetime into ordered `u64`
+- Encodings preserve chronological ordering
+
+## Rollover handling
+
+- Correct transitions:
+  - second → minute
+  - minute → hour
+  - hour → day
+  - day → month
+  - month → year
+
+## Leap year support
+
+- Validates February 29 correctly
+- Rejects invalid leap dates
+
+## Leap second support (in progress)
+
+- Fetch leap second data
+- Identify leap second days
+- Planned support for `23:59:60`
+- External data-driven correctness
