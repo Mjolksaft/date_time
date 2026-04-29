@@ -1,6 +1,7 @@
-use crate::precision::Precision;
+use time::OffsetDateTime;
 use std::cmp::Ordering;
 
+use crate::precision::Precision;
 use crate::util::valid_date;
 use crate::interval::to_interval;
 use crate::truth_values::TruthValue;
@@ -16,13 +17,57 @@ pub struct TimePoint {
     pub precision: Precision,
 }
 
-pub fn parse_date_time_point(input: &str) -> Result<Vec<u32>, String> {
-    let parts: Vec<&str> = input.split("-").collect();
-    
-    parts
-        .iter()
-        .map(|x| x.parse::<u32>().map_err(|_| String::from("Invalid number format")))
-        .collect()
+impl TimePoint {
+    pub fn new(
+        year: u32,
+        month: Option<u32>,
+        day: Option<u32>,
+        hour: Option<u32>,
+        minute: Option<u32>,
+        second: Option<u32>,
+    ) -> Result<Self, String> {
+        let precision = match (month, day, hour, minute, second) {
+            (None, None, None, None, None) => Precision::Year,
+            (Some(_), None, None, None, None) => Precision::Month,
+            (Some(_), Some(_), None, None, None) => Precision::Day,
+            (Some(_), Some(_), Some(_), None, None) => Precision::Hour,
+            (Some(_), Some(_), Some(_), Some(_), None) => Precision::Minute,
+            (Some(_), Some(_), Some(_), Some(_), Some(_)) => Precision::Second,
+            _ => return Err(String::from("Invalid missing fields order")),
+        };
+
+        let month = month.unwrap_or(1);
+        let day = day.unwrap_or(1);
+        let hour = hour.unwrap_or(0);
+        let minute = minute.unwrap_or(0);
+        let second = second.unwrap_or(0);
+
+        valid_date(year, Some(month), Some(day), Some(hour), Some(minute), Some(second))?;
+
+        Ok(Self {
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            precision,
+        })
+    }
+
+    pub fn now_utc() -> Self {
+        let now = OffsetDateTime::now_utc();
+
+        TimePoint {
+            year: now.year() as u32,
+            month: now.month() as u32,
+            day: now.day() as u32,
+            hour: now.hour() as u32,
+            minute: now.minute() as u32,
+            second: now.second() as u32,
+            precision: Precision::Second,
+        }
+    }
 }
 
 pub fn time_point(input: &str) -> Result<TimePoint, String> {
@@ -33,112 +78,57 @@ pub fn time_point(input: &str) -> Result<TimePoint, String> {
     let parsed_date: Vec<u32> = parse_date_time_point(input)?;
 
     match parsed_date.len() {
-        1 => Ok(TimePoint {
-            year: parsed_date[0],
-            month: 1,
-            day: 1,
-            hour: 0,
-            minute: 0,
-            second: 0,
-            precision: Precision::Year,
-        }),
+        1 => TimePoint::new(parsed_date[0], None, None, None, None, None),
 
-        2 => {
-            valid_date(parsed_date[0], Some(parsed_date[1]), None)?;
+        2 => TimePoint::new(parsed_date[0], Some(parsed_date[1]), None, None, None, None),
 
-            Ok(TimePoint {
-                year: parsed_date[0],
-                month: parsed_date[1],
-                day: 1,
-                hour: 0,
-                minute: 0,
-                second: 0,
-                precision: Precision::Month,
-            })
-        },
+        3 => TimePoint::new(
+            parsed_date[0],
+            Some(parsed_date[1]),
+            Some(parsed_date[2]),
+            None,
+            None,
+            None,
+        ),
 
-        3 => {
-            valid_date(parsed_date[0], Some(parsed_date[1]), Some(parsed_date[2]))?;
+        4 => TimePoint::new(
+            parsed_date[0],
+            Some(parsed_date[1]),
+            Some(parsed_date[2]),
+            Some(parsed_date[3]),
+            None,
+            None,
+        ),
 
-            Ok(TimePoint {
-                year: parsed_date[0],
-                month: parsed_date[1],
-                day: parsed_date[2],
-                hour: 0,
-                minute: 0,
-                second: 0,
-                precision: Precision::Day,
-            })
-        },
+        5 => TimePoint::new(
+            parsed_date[0],
+            Some(parsed_date[1]),
+            Some(parsed_date[2]),
+            Some(parsed_date[3]),
+            Some(parsed_date[4]),
+            None,
+        ),
 
-        4 => {
-            valid_date(parsed_date[0], Some(parsed_date[1]), Some(parsed_date[2]))?;
-
-            if parsed_date[3] > 23 {
-                return Err(String::from("Invalid hour"));
-            }
-
-            Ok(TimePoint {
-                year: parsed_date[0],
-                month: parsed_date[1],
-                day: parsed_date[2],
-                hour: parsed_date[3],
-                minute: 0,
-                second: 0,
-                precision: Precision::Hour,
-            })
-        }
-
-        5 => {
-            valid_date(parsed_date[0], Some(parsed_date[1]), Some(parsed_date[2]))?;
-
-            if parsed_date[3] > 23 {
-                return Err(String::from("Invalid hour"));
-            }
-
-            if parsed_date[4] > 59 {
-                return Err(String::from("Invalid minute"));
-            }
-
-            Ok(TimePoint {
-                year: parsed_date[0],
-                month: parsed_date[1],
-                day: parsed_date[2],
-                hour: parsed_date[3],
-                minute: parsed_date[4],
-                second: 0,
-                precision: Precision::Minute,
-            })
-        }
-
-        6 => {
-            valid_date(parsed_date[0], Some(parsed_date[1]), Some(parsed_date[2]))?;
-
-            if parsed_date[3] > 23 {
-                return Err(String::from("Invalid hour"));
-            }
-
-            if parsed_date[4] > 59 {
-                return Err(String::from("Invalid minute"));
-            }
-
-            if parsed_date[5] > 59 {
-                return Err(String::from("Invalid second"));
-            }
-
-            Ok(TimePoint {
-                year: parsed_date[0],
-                month: parsed_date[1],
-                day: parsed_date[2],
-                hour: parsed_date[3],
-                minute: parsed_date[4],
-                second: parsed_date[5],
-                precision: Precision::Second,
-            })
-        }
+        6 => TimePoint::new(
+            parsed_date[0],
+            Some(parsed_date[1]),
+            Some(parsed_date[2]),
+            Some(parsed_date[3]),
+            Some(parsed_date[4]),
+            Some(parsed_date[5]),
+        ),
 
         _ => Err(String::from("Invalid date format")),
     }
+}
+
+pub fn parse_date_time_point(input: &str) -> Result<Vec<u32>, String> {
+    let parts: Vec<&str> = input.split("-").collect();
+    
+    parts
+        .iter()
+        .map(|x| x.parse::<u32>().map_err(|_| String::from("Invalid number format")))
+        .collect()
 }
 
 impl Ord for TimePoint {
