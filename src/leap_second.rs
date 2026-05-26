@@ -1,7 +1,8 @@
 use reqwest::blocking::get;
-use std::{error::Error};
 use std::collections::HashSet;
+use std::error::Error;
 use std::fs;
+
 use crate::util::{parse_month, previous_day};
 
 pub fn fetch_leap_seconds() -> Result<String, Box<dyn Error>> {
@@ -25,8 +26,8 @@ pub fn get_leap_seconds_data() -> HashSet<(u32, u32, u32)> {
     match load_from_file() {
         Ok(data) => parse_leap_seconds(&data),
         Err(_) => {
-            let data = fetch_leap_seconds().expect("Failed to fetch");
-            save_to_file(&data).expect("Failed to save");
+            let data = fetch_leap_seconds().expect("Failed to fetch leap-second data");
+            save_to_file(&data).expect("Failed to save leap-second data");
             parse_leap_seconds(&data)
         }
     }
@@ -38,32 +39,37 @@ pub fn parse_leap_seconds(data: &str) -> HashSet<(u32, u32, u32)> {
     for line in data.lines() {
         let line = line.trim();
 
-        // skip comments or empty lines
-        if line.is_empty() || !line.chars().next().unwrap_or(' ').is_digit(10) {
+        if line.is_empty() || !line.chars().next().unwrap_or(' ').is_ascii_digit() {
             continue;
         }
 
-        // split comment part
-        if let Some(comment) = line.split('#').nth(1) {
-            let parts: Vec<&str> = comment.trim().split_whitespace().collect();
+        let Some(comment) = line.split('#').nth(1) else {
+            continue;
+        };
 
-            if parts.len() == 3 {
-                let day = parts[0].parse::<u32>().ok();
-                let month = parse_month(parts[1]);
-                let year = parts[2].parse::<u32>().ok();
+        let parts: Vec<&str> = comment.split_whitespace().collect();
 
-                if let (Some(d), Some(m), Some(y)) = (day, month, year) {
-                    let (ly, lm, ld) = previous_day(y, m, d);
-                    set.insert((ly, lm, ld));
-                }
+        if parts.len() != 3 {
+            continue;
+        }
+
+        let day = parts[0].parse::<u32>().ok();
+        let month = parse_month(parts[1]);
+        let year = parts[2].parse::<u32>().ok();
+
+        if let (Some(d), Some(m), Some(y)) = (day, month, year) {
+            if let Ok((ly, lm, ld)) = previous_day(y, m, d) {
+                set.insert((ly, lm, ld));
             }
         }
     }
+
     set
 }
-
 
 pub fn is_leap_second(year: u32, month: u32, day: u32) -> bool {
     let leap_seconds = get_leap_seconds_data();
     leap_seconds.contains(&(year, month, day))
 }
+
+
