@@ -26,6 +26,27 @@ pub struct TimePoint {
 
 impl TimePoint {
     pub fn new(
+    year: u32,
+    month: Option<u32>,
+    day: Option<u32>,
+    hour: Option<u32>,
+    minute: Option<u32>,
+    second: Option<u32>,
+    millisecond: Option<u32>,
+) -> Result<Self, String> {
+    Self::new_with_zone(
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            millisecond,
+            TimeZone::default(),
+        )
+    }
+
+    pub fn new_with_zone(
         year: u32,
         month: Option<u32>,
         day: Option<u32>,
@@ -33,6 +54,7 @@ impl TimePoint {
         minute: Option<u32>,
         second: Option<u32>,
         millisecond: Option<u32>,
+        zone: TimeZone,
     ) -> Result<Self, String> {
         let precision = match (month, day, hour, minute, second, millisecond) {
             (None, None, None, None, None, None) => Precision::Year,
@@ -66,6 +88,10 @@ impl TimePoint {
             if hour != 23 || minute != 59 || !is_leap_second(year, month, day) {
                 return Err(String::from("Invalid leap second"));
             }
+
+            if !zone.supports_leap_seconds() {
+                return Err(String::from("This time zone does not support leap seconds"));
+            }
         }
 
         Ok(Self {
@@ -77,10 +103,10 @@ impl TimePoint {
             second,
             millisecond,
             precision,
-            zone: TimeZone::UTC,
+            zone,
         })
     }
-
+    
     pub fn now_utc() -> Self {
         let now = OffsetDateTime::now_utc();
 
