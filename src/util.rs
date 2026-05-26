@@ -42,10 +42,17 @@ pub fn valid_date(year: u32, month: Option<u32>, day: Option<u32>, hour: Option<
         }
 
         if let Some(second) = second {
-            if second > 59 {
+            if second > 60 {
                 return Err(String::from("Invalid second"));
             }
         }
+
+        if let Some(millisecond) = second {
+            if millisecond > 999 {
+                return Err(String::from("Invalid millisecond"));
+            }
+        }
+        
     } else if day.is_some() {
         return Err(String::from("Day provided without month"));
     }

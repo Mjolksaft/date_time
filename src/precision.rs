@@ -6,4 +6,5 @@ pub enum Precision {
     Hour,
     Minute,
     Second,
+    Millisecond,
 }

@@ -59,6 +59,11 @@ pub fn parse_leap_seconds(data: &str) -> HashSet<(u32, u32, u32)> {
             }
         }
     }
-
     set
+}
+
+
+pub fn is_leap_second(year: u32, month: u32, day: u32) -> bool {
+    let leap_seconds = get_leap_seconds_data();
+    leap_seconds.contains(&(year, month, day))
 }
