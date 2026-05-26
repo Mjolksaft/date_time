@@ -69,7 +69,7 @@ impl TimePoint {
         let minute = minute.unwrap_or(0);
         let second = second.unwrap_or(0);
         let millisecond = millisecond.unwrap_or(0);
-        valid_date(year, Some(month), Some(day), Some(hour), Some(minute), Some(second))?;
+        valid_date(year, Some(month), Some(day), Some(hour), Some(minute), Some(second), Some(millisecond))?;
         if second == 60 {
             if hour != 23 || minute != 59 || !is_leap_second(year, month, day) {
                 return Err(String::from("Invalid leap second"));

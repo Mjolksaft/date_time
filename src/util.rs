@@ -1,3 +1,5 @@
+use crate::precision::Precision::Millisecond;
+
 pub fn is_leap_year(year: &u32) -> bool {
     (*year % 4 == 0 && *year % 100 != 0) || (*year % 400 == 0)
 }
@@ -17,7 +19,7 @@ pub fn days_in_month(year: u32, month: u32) -> u32 {
     }
 }
 
-pub fn valid_date(year: u32, month: Option<u32>, day: Option<u32>, hour: Option<u32>, minute: Option<u32>, second: Option<u32>) -> Result<(), String> {
+pub fn valid_date(year: u32, month: Option<u32>, day: Option<u32>, hour: Option<u32>, minute: Option<u32>, second: Option<u32>, millisecond: Option<u32>) -> Result<(), String> {
     if let Some(month) = month {
         if month == 0 || month > 12 {
             return Err(String::from("Invalid month"));
@@ -47,7 +49,7 @@ pub fn valid_date(year: u32, month: Option<u32>, day: Option<u32>, hour: Option<
             }
         }
 
-        if let Some(millisecond) = second {
+        if let Some(millisecond) = millisecond {
             if millisecond > 999 {
                 return Err(String::from("Invalid millisecond"));
             }
