@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use time::OffsetDateTime;
+use std::fmt;
 
 use crate::leap_second::is_leap_second;
 use crate::precision::Precision;
@@ -8,7 +9,7 @@ use crate::util::{days_in_month, valid_date};
 use crate::truth_values::TruthValue;
 use crate::interval::{to_interval};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct TimePoint {
     pub year: u32,
     pub month: u32,
@@ -535,18 +536,6 @@ impl TimePoint {
             t.precision.clone(),
         )
     }
-    pub fn as_string(&self) -> String {
-        format!(
-            "{:04}-{:02}-{:02}-{:02}-{:02}-{:02}-{:03}",
-            self.year,
-            self.month,
-            self.day,
-            self.hour,
-            self.minute,
-            self.second,
-            self.millisecond
-        )
-    }
 
     pub fn equals(&self, other: &TimePoint) -> Result<TruthValue, String> {
         let a = to_interval(self)?;
@@ -581,6 +570,40 @@ impl TimePoint {
         let b = to_interval(other)?;
 
         Ok(a.overlaps(&b))
+    }
+
+    pub fn parse(input: &str) -> Result<Self, String> {
+        time_point(input)
+    }
+
+    pub fn to_unix_timestamp(&self) -> Result<i64, String> {
+        crate::unix::to_unix_timestamp(self)
+    }
+
+    pub fn from_unix_timestamp(ts: i64) -> Result<Self, String> {
+        crate::unix::from_unix_timestamp(ts)
+    }
+
+    pub fn as_interval(&self) -> Result<crate::interval::Interval, String> {
+        crate::interval::to_interval(self)
+    }
+}
+
+impl fmt::Display for TimePoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:04}-{:02}-{:02}-{:02}-{:02}-{:02}-{:03} [{:?}, {:?}]",
+            self.year,
+            self.month,
+            self.day,
+            self.hour,
+            self.minute,
+            self.second,
+            self.millisecond,
+            self.precision,
+            self.zone
+        )
     }
 }
 
