@@ -2,6 +2,8 @@ use crate::precision::Precision;
 use crate::time_point::TimePoint;
 use crate::truth_values::TruthValue;
 
+use std::cmp::Ordering;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Interval {
     pub lower: TimePoint,
@@ -69,8 +71,53 @@ impl Interval {
             _ => TruthValue::True,
         }
     }
+
+    pub fn meets(&self, other: &Interval) -> TruthValue {
+        TruthValue::from(self.upper == other.lower)
+    }
+
+    pub fn met_by(&self, other: &Interval) -> TruthValue {
+        TruthValue::from(self.lower == other.upper)
+    }
+
+
+
+    pub fn starts(&self, other: &Interval) -> TruthValue {
+        TruthValue::from(
+            same_boundary(&self.lower, &other.lower) && self.upper < other.upper
+        )
+    }
+
+    pub fn started_by(&self, other: &Interval) -> TruthValue {
+        TruthValue::from(
+            same_boundary(&self.lower, &other.lower) && self.upper > other.upper
+        )
+    }
+
+    pub fn finishes(&self, other: &Interval) -> TruthValue {
+        TruthValue::from(
+            same_boundary(&self.upper, &other.upper) && self.lower > other.lower
+        )
+    }
+
+    pub fn finished_by(&self, other: &Interval) -> TruthValue {
+        TruthValue::from(
+            same_boundary(&self.upper, &other.upper) && self.lower < other.lower
+        )
+    }
+
+    pub fn during(&self, other: &Interval) -> TruthValue {
+        TruthValue::from(
+            other.lower < self.lower && self.upper < other.upper
+        )
+    }
+
+
 }
 
+fn same_boundary(a: &TimePoint, b: &TimePoint) -> bool {
+    a.cmp(b) == Ordering::Equal
+}
 
 pub fn calculate_upper(lower: &TimePoint) -> TimePoint {
     match lower.precision {
