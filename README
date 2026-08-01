@@ -13,13 +13,13 @@
 ## String parsing
 
 - Parse string input into `TimePoint`
-- Supports variable precision (year → second)
+- Supports variable precision (year → millisecond)
 - Rejects invalid formats and values
 
 ## Current time
 
 - Retrieve current UTC time (`TimePoint::now_utc`)
-- Always returns second-level precision
+- Always returns millisecond-level precision
 
 ## Precision model
 
@@ -30,6 +30,7 @@
   - Hour
   - Minute
   - Second
+  - Millisecond
 - Precision determines semantic meaning and interval size
 
 ## Interval normalization
@@ -47,6 +48,22 @@
   - equals
   - contains
   - overlaps
+- Results are three-valued (`True` / `False` / `Unknown`):
+  - Exact (`True` / `False`) when the intervals are certainly ordered, equal, or disjoint
+  - `Unknown` when the intervals could overlap
+
+## Uncertainty model
+
+- Attach a symmetric offset to any `TimePoint` via `with_uncertainty(Uncertainty::from_seconds(n))`
+- Default is no uncertainty (`uncertainty: None`)
+- An uncertain point `t ± u` denotes the semantic interval `[t-u, t+u)`
+- Uncertainty takes precedence over precision when deriving intervals
+- Relations between uncertain points widen both intervals; the three-valued result reports
+  - `True` when the relation certainly holds
+  - `False` when it certainly does not
+  - `Unknown` when the widened intervals could still overlap
+- Example: `12:00:00 ± 10s` is `[11:59:50, 12:00:10)`; with `12:10:00 ± 10s` the relation
+  `before` is certainly `True`, while `12:00:00 ± 10min` vs `12:05:00 ± 10min` is `Unknown`
 
 ## Ordering
 
@@ -57,7 +74,7 @@
 
 - Encode date into compact integer representation
 - Encode full datetime into ordered `u64`
-- Encodings preserve chronological ordering
+- Encodings preserve chronological ordering, including across second/minute/hour/day/month/year boundaries and leap seconds
 
 ## Rollover handling
 
@@ -73,9 +90,35 @@
 - Validates February 29 correctly
 - Rejects invalid leap dates
 
-## Leap second support (in progress)
+## Leap second support
 
-- Fetch leap second data
-- Identify leap second days
-- Planned support for `23:59:60`
-- External data-driven correctness
+- Fetch leap second data (or load local `leap-seconds.list`)
+- Identify leap second days where `23:59:60` is valid
+- Correct rollover across leap seconds in arithmetic
+
+## Unix interoperability
+
+- Convert `TimePoint` to/from Unix timestamps
+- Unix cannot represent leap seconds: second 60 is rejected
+
+## TAI interoperability
+
+- Convert UTC ↔ TAI
+- TAI-UTC offset calculation from the leap-second table
+- Leap seconds are absorbed by the offset in TAI (no second 60)
+- TAI seconds falling during a leap second map back to UTC `23:59:60`
+
+## Module layout
+
+- `time_point.rs` - temporal value with precision, time zone, and uncertainty
+- `precision.rs` - precision levels
+- `interval.rs` - half-open `[start, end)` intervals and three-valued relations
+- `time_zone.rs` - UTC, TAI, Unix
+- `truth_values.rs` - True, False, Unknown
+- `uncertainty.rs` - symmetric uncertainty offset in seconds
+- `leap_second.rs` - leap-second data handling
+- `util.rs` - calendar validation and helpers
+- `unix.rs` - Unix timestamp conversion
+- `tai.rs` - TAI conversion and offset calculation
+
+Integration tests live in `tests/`.

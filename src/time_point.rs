@@ -1,13 +1,13 @@
-use time::OffsetDateTime;
-use time::convert::Millisecond;
 use std::cmp::Ordering;
+use time::OffsetDateTime;
 
-use crate::precision::Precision;
-use crate::util::{valid_date, days_in_month};
 use crate::interval::to_interval;
-use crate::truth_values::TruthValue;
-use crate::time_zone::TimeZone;
 use crate::leap_second::is_leap_second;
+use crate::precision::Precision;
+use crate::time_zone::TimeZone;
+use crate::truth_values::TruthValue;
+use crate::uncertainty::Uncertainty;
+use crate::util::{days_in_month, valid_date};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct TimePoint {
@@ -20,14 +20,10 @@ pub struct TimePoint {
     pub millisecond: u32,
     pub precision: Precision,
     pub zone: TimeZone,
+    pub uncertainty: Option<Uncertainty>,
 }
 
-fn start_of(
-    year: u32,
-    month: u32,
-    day: u32,
-    precision: Precision,
-) -> TimePoint {
+fn start_of(year: u32, month: u32, day: u32, precision: Precision) -> TimePoint {
     TimePoint {
         year,
         month,
@@ -38,9 +34,9 @@ fn start_of(
         millisecond: 0,
         precision,
         zone: TimeZone::UTC,
+        uncertainty: None,
     }
 }
-
 
 impl TimePoint {
     pub fn new(
@@ -69,7 +65,15 @@ impl TimePoint {
         let minute = minute.unwrap_or(0);
         let second = second.unwrap_or(0);
         let millisecond = millisecond.unwrap_or(0);
-        valid_date(year, Some(month), Some(day), Some(hour), Some(minute), Some(second))?;
+        valid_date(
+            year,
+            Some(month),
+            Some(day),
+            Some(hour),
+            Some(minute),
+            Some(second),
+            Some(millisecond),
+        )?;
         if second == 60 {
             if hour != 23 || minute != 59 || !is_leap_second(year, month, day) {
                 return Err(String::from("Invalid leap second"));
@@ -86,6 +90,7 @@ impl TimePoint {
             millisecond,
             precision,
             zone: TimeZone::UTC,
+            uncertainty: None,
         })
     }
 
@@ -102,7 +107,17 @@ impl TimePoint {
             millisecond: now.nanosecond() / 1_000_000,
             precision: Precision::Millisecond,
             zone: TimeZone::UTC,
+            uncertainty: None,
         }
+    }
+
+    pub fn with_uncertainty(mut self, uncertainty: Uncertainty) -> Self {
+        self.uncertainty = Some(uncertainty);
+        self
+    }
+
+    pub fn uncertainty(&self) -> Option<Uncertainty> {
+        self.uncertainty
     }
 }
 
@@ -116,7 +131,15 @@ pub fn time_point(input: &str) -> Result<TimePoint, String> {
     match parsed_date.len() {
         1 => TimePoint::new(parsed_date[0], None, None, None, None, None, None),
 
-        2 => TimePoint::new(parsed_date[0], Some(parsed_date[1]), None, None, None, None, None),
+        2 => TimePoint::new(
+            parsed_date[0],
+            Some(parsed_date[1]),
+            None,
+            None,
+            None,
+            None,
+            None,
+        ),
 
         3 => TimePoint::new(
             parsed_date[0],
@@ -174,10 +197,13 @@ pub fn time_point(input: &str) -> Result<TimePoint, String> {
 
 pub fn parse_date_time_point(input: &str) -> Result<Vec<u32>, String> {
     let parts: Vec<&str> = input.split("-").collect();
-    
+
     parts
         .iter()
-        .map(|x| x.parse::<u32>().map_err(|_| String::from("Invalid number format")))
+        .map(|x| {
+            x.parse::<u32>()
+                .map_err(|_| String::from("Invalid number format"))
+        })
         .collect()
 }
 
@@ -210,45 +236,12 @@ impl PartialOrd for TimePoint {
     }
 }
 impl TimePoint {
-
     pub fn to_unix_timestamp(&self) -> Result<i64, String> {
-        if self.second == 60 {
-            return Err(String::from("Unix timestamp cannot represent leap seconds"));
-        }
-
-        let datetime = time::PrimitiveDateTime::new(
-            time::Date::from_calendar_date(
-                self.year as i32,
-                time::Month::try_from(self.month as u8)
-                    .map_err(|_| String::from("Invalid month"))?,
-                self.day as u8,
-            )
-            .map_err(|_| String::from("Invalid date"))?,
-            time::Time::from_hms(
-                self.hour as u8,
-                self.minute as u8,
-                self.second as u8,
-            )
-            .map_err(|_| String::from("Invalid time"))?,
-        );
-
-        Ok(datetime.assume_utc().unix_timestamp())
+        crate::unix::to_unix_timestamp(self)
     }
 
     pub fn from_unix_timestamp(ts: i64) -> Self {
-        let dt = time::OffsetDateTime::from_unix_timestamp(ts).unwrap();
-
-        TimePoint {
-            year: dt.year() as u32,
-            month: dt.month() as u32,
-            day: dt.day() as u32,
-            hour: dt.hour() as u32,
-            minute: dt.minute() as u32,
-            second: dt.second() as u32,
-            millisecond: dt.nanosecond() / 1_000_000_000,
-            precision: Precision::Second,
-            zone: TimeZone::UTC,
-        }
+        crate::unix::from_unix_timestamp(ts)
     }
 
     pub fn boundary_key(&self) -> u64 {
@@ -262,7 +255,6 @@ impl TimePoint {
             self.millisecond,
         )
     }
-
 
     pub fn add_seconds_fast(&self, seconds: u64) -> Result<Self, String> {
         let ts = self.to_unix_timestamp()?;
@@ -314,6 +306,7 @@ impl TimePoint {
             millisecond: t.millisecond + 1,
             precision: t.precision.clone(),
             zone: t.zone.clone(),
+            uncertainty: None,
         }
     }
 
@@ -329,6 +322,7 @@ impl TimePoint {
                 millisecond: 0,
                 precision: t.precision.clone(),
                 zone: t.zone.clone(),
+                uncertainty: None,
             };
         }
 
@@ -353,6 +347,7 @@ impl TimePoint {
             millisecond: 0,
             precision: t.precision.clone(),
             zone: t.zone.clone(),
+            uncertainty: None,
         }
     }
 
@@ -375,6 +370,7 @@ impl TimePoint {
                 millisecond: 0,
                 precision: t.precision.clone(),
                 zone: TimeZone::UTC,
+                uncertainty: None,
             }
         }
     }
@@ -398,6 +394,7 @@ impl TimePoint {
                 millisecond: 0,
                 precision: t.precision.clone(),
                 zone: TimeZone::UTC,
+                uncertainty: None,
             }
         }
     }
@@ -540,7 +537,6 @@ impl TimePoint {
     }
 }
 
-
 impl TimePoint {
     pub fn equals(&self, other: &TimePoint) -> Result<TruthValue, String> {
         let a = to_interval(self, None)?;
@@ -603,11 +599,11 @@ pub fn encode_datetime(
     second: u32,
     millisecond: u32,
 ) -> u64 {
-    ((year as u64) << 26)
-        | ((month as u64) << 22)
-        | ((day as u64) << 17)
-        | ((hour as u64) << 12)
-        | ((minute as u64) << 6)
-        | ((second as u64) << 10)
+    ((year as u64) << 50)
+        | ((month as u64) << 46)
+        | ((day as u64) << 41)
+        | ((hour as u64) << 36)
+        | ((minute as u64) << 30)
+        | ((second as u64) << 24)
         | millisecond as u64
 }
