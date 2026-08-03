@@ -52,6 +52,21 @@
   - Exact (`True` / `False`) when the intervals are certainly ordered, equal, or disjoint
   - `Unknown` when the intervals could overlap
 
+## Duration
+
+- `Duration` is a fixed elapsed amount of time with millisecond resolution
+- No calendar concepts: months and years are not representable (see the future `Period`)
+- Signed: positive, negative, and zero durations
+- Construction: `from_milliseconds`, `from_seconds`, `from_minutes`, `from_hours`, `zero`
+- Accessors: `milliseconds`, `seconds`, `subsec_milliseconds`, `is_zero`, `is_negative`, `is_positive`
+- Operators: `+`, `-`, unary `-`, equality and ordering
+- TimePoint arithmetic:
+  - `TimePoint + Duration -> TimePoint`
+  - `TimePoint - Duration -> TimePoint`
+  - `TimePoint - TimePoint -> Duration`
+- Arithmetic is calendar-aware and leap-second-aware (a leap second counts as one elapsed second)
+- Millisecond precision is preserved; `TimePoint` precision metadata is unchanged
+
 ## Uncertainty model
 
 - Attach a symmetric offset to any `TimePoint` via `with_uncertainty(Uncertainty::from_seconds(n))`
@@ -111,6 +126,7 @@
 ## Module layout
 
 - `time_point.rs` - temporal value with precision, time zone, and uncertainty
+- `duration.rs` - fixed elapsed time with millisecond resolution
 - `precision.rs` - precision levels
 - `interval.rs` - half-open `[start, end)` intervals and three-valued relations
 - `time_zone.rs` - UTC, TAI, Unix

@@ -1,3 +1,4 @@
+pub mod duration;
 pub mod interval;
 pub mod leap_second;
 pub mod precision;
@@ -9,9 +10,57 @@ pub mod uncertainty;
 pub mod unix;
 pub mod util;
 
+use crate::duration::Duration;
 use crate::time_point::{TimePoint, time_point};
 
 use pyo3::prelude::*;
+
+#[pyclass(skip_from_py_object)]
+#[derive(Clone)]
+pub struct PyDuration {
+    inner: Duration,
+}
+
+#[pymethods]
+impl PyDuration {
+    #[staticmethod]
+    fn from_seconds(seconds: i64) -> Self {
+        Self {
+            inner: Duration::from_seconds(seconds),
+        }
+    }
+
+    #[staticmethod]
+    fn from_milliseconds(milliseconds: i64) -> Self {
+        Self {
+            inner: Duration::from_milliseconds(milliseconds),
+        }
+    }
+
+    fn milliseconds(&self) -> i64 {
+        self.inner.milliseconds()
+    }
+
+    fn seconds(&self) -> i64 {
+        self.inner.seconds()
+    }
+
+    fn is_zero(&self) -> bool {
+        self.inner.is_zero()
+    }
+
+    fn is_negative(&self) -> bool {
+        self.inner.is_negative()
+    }
+
+    fn is_positive(&self) -> bool {
+        self.inner.is_positive()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("Duration({})", self.inner)
+    }
+}
 
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
@@ -84,6 +133,24 @@ impl PyTimePoint {
     fn sub_seconds(&self, seconds: u64) -> Self {
         Self {
             inner: self.inner.sub_seconds(seconds),
+        }
+    }
+
+    fn add_duration(&self, duration: &PyDuration) -> Self {
+        Self {
+            inner: self.inner.add_duration(duration.inner),
+        }
+    }
+
+    fn sub_duration(&self, duration: &PyDuration) -> Self {
+        Self {
+            inner: self.inner.sub_duration(duration.inner),
+        }
+    }
+
+    fn duration_since(&self, earlier: &PyTimePoint) -> PyDuration {
+        PyDuration {
+            inner: self.inner.duration_since(&earlier.inner),
         }
     }
 
@@ -161,6 +228,7 @@ fn parse(input: &str) -> PyResult<PyTimePoint> {
 #[pymodule]
 fn date_time(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTimePoint>()?;
+    m.add_class::<PyDuration>()?;
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     Ok(())
 }

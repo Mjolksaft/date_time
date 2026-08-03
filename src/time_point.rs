@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
+use std::ops::{Add, Sub};
 use time::OffsetDateTime;
 
+use crate::duration::Duration;
 use crate::interval::to_interval;
 use crate::leap_second::is_leap_second;
 use crate::precision::Precision;
@@ -534,6 +536,115 @@ impl TimePoint {
 
     pub fn duration_until(&self, other: &TimePoint) -> Result<i64, String> {
         Ok(other.to_unix_timestamp()? - self.to_unix_timestamp()?)
+    }
+
+    pub fn add_duration(&self, duration: Duration) -> Self {
+        if duration.is_negative() {
+            return self.sub_duration(-duration);
+        }
+
+        let seconds = duration.seconds() as u64;
+        let subsec = duration.subsec_milliseconds();
+        let total_milliseconds = self.millisecond as i64 + subsec;
+        let carry = total_milliseconds / 1000;
+        let remainder = total_milliseconds % 1000;
+
+        let base = self.add_seconds(seconds + carry as u64);
+
+        TimePoint {
+            millisecond: remainder as u32,
+            ..base
+        }
+    }
+
+    pub fn sub_duration(&self, duration: Duration) -> Self {
+        if duration.is_negative() {
+            return self.add_duration(-duration);
+        }
+
+        let seconds = duration.seconds() as u64;
+        let subsec = duration.subsec_milliseconds();
+        let mut delta = self.millisecond as i64 - subsec;
+        let mut borrow = 0;
+
+        if delta < 0 {
+            delta += 1000;
+            borrow = 1;
+        }
+
+        let base = self.sub_seconds(seconds + borrow);
+
+        TimePoint {
+            millisecond: delta as u32,
+            ..base
+        }
+    }
+
+    pub fn duration_since(&self, earlier: &TimePoint) -> Duration {
+        if self == earlier {
+            return Duration::zero();
+        }
+
+        if self > earlier {
+            let seconds = seconds_forward(earlier, &self.with_millisecond(0));
+            Duration::from_milliseconds(
+                seconds as i64 * 1000 + self.millisecond as i64 - earlier.millisecond as i64,
+            )
+        } else {
+            -earlier.duration_since(self)
+        }
+    }
+
+    fn with_millisecond(&self, millisecond: u32) -> Self {
+        TimePoint {
+            millisecond,
+            ..self.clone()
+        }
+    }
+}
+
+fn seconds_forward(from: &TimePoint, to: &TimePoint) -> u64 {
+    let mut count = 0u64;
+    let mut current = from.clone();
+
+    while !same_second_position(&current, to) {
+        current = TimePoint::add_one_second(&current);
+        count += 1;
+    }
+
+    count
+}
+
+fn same_second_position(a: &TimePoint, b: &TimePoint) -> bool {
+    a.year == b.year
+        && a.month == b.month
+        && a.day == b.day
+        && a.hour == b.hour
+        && a.minute == b.minute
+        && a.second == b.second
+}
+
+impl Add<Duration> for TimePoint {
+    type Output = Self;
+
+    fn add(self, rhs: Duration) -> Self {
+        self.add_duration(rhs)
+    }
+}
+
+impl Sub<Duration> for TimePoint {
+    type Output = Self;
+
+    fn sub(self, rhs: Duration) -> Self {
+        self.sub_duration(rhs)
+    }
+}
+
+impl Sub for TimePoint {
+    type Output = Duration;
+
+    fn sub(self, rhs: TimePoint) -> Duration {
+        self.duration_since(&rhs)
     }
 }
 
