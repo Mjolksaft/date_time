@@ -3,7 +3,7 @@ use std::ops::{Add, Sub};
 use time::OffsetDateTime;
 
 use crate::duration::Duration;
-use crate::interval::to_interval;
+use crate::interval::{AllenRelation, to_interval};
 use crate::leap_second::is_leap_second;
 use crate::precision::Precision;
 use crate::time_zone::TimeZone;
@@ -682,6 +682,13 @@ impl TimePoint {
         let b = to_interval(other, None)?;
 
         Ok(a.overlaps(&b))
+    }
+
+    pub fn allen_relation(&self, other: &TimePoint) -> Result<AllenRelation, String> {
+        let a = to_interval(self, None)?;
+        let b = to_interval(other, None)?;
+
+        a.allen_relation(&b)
     }
 }
 

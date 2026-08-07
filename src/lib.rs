@@ -190,6 +190,15 @@ impl PyTimePoint {
         ))
     }
 
+    fn allen_relation(&self, other: &PyTimePoint) -> PyResult<String> {
+        Ok(format!(
+            "{}",
+            self.inner
+                .allen_relation(&other.inner)
+                .map_err(pyo3::exceptions::PyValueError::new_err)?
+        ))
+    }
+
     fn to_unix_timestamp(&self) -> PyResult<i64> {
         self.inner
             .to_unix_timestamp()

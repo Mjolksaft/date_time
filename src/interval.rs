@@ -10,6 +10,45 @@ pub struct Interval {
     pub upper_key: u64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AllenRelation {
+    Before,
+    After,
+    Meets,
+    MetBy,
+    Overlaps,
+    OverlappedBy,
+    Contains,
+    During,
+    Starts,
+    StartedBy,
+    Finishes,
+    FinishedBy,
+    Equal,
+}
+
+impl std::fmt::Display for AllenRelation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            AllenRelation::Before => "before",
+            AllenRelation::After => "after",
+            AllenRelation::Meets => "meets",
+            AllenRelation::MetBy => "met-by",
+            AllenRelation::Overlaps => "overlaps",
+            AllenRelation::OverlappedBy => "overlapped-by",
+            AllenRelation::Contains => "contains",
+            AllenRelation::During => "during",
+            AllenRelation::Starts => "starts",
+            AllenRelation::StartedBy => "started-by",
+            AllenRelation::Finishes => "finishes",
+            AllenRelation::FinishedBy => "finished-by",
+            AllenRelation::Equal => "equal",
+        };
+
+        f.write_str(name)
+    }
+}
+
 pub fn interval(lower: &TimePoint, upper: &TimePoint) -> Result<Interval, String> {
     if lower > upper {
         return Err(String::from(
@@ -144,5 +183,78 @@ impl Interval {
         } else {
             TruthValue::Unknown
         }
+    }
+
+    pub fn allen_relation(&self, other: &Interval) -> Result<AllenRelation, String> {
+        self.validate_interval()?;
+        other.validate_interval()?;
+
+        let a_start = self.lower_key;
+        let a_end = self.upper_key;
+        let b_start = other.lower_key;
+        let b_end = other.upper_key;
+
+        if a_end < b_start {
+            return Ok(AllenRelation::Before);
+        }
+        if a_end == b_start {
+            return Ok(AllenRelation::Meets);
+        }
+
+        if a_start < b_start && b_end < a_end {
+            return Ok(AllenRelation::Contains);
+        }
+
+        if a_start < b_start && b_start < a_end && a_end < b_end {
+            return Ok(AllenRelation::Overlaps);
+        }
+
+        if a_start < b_start && a_end == b_end {
+            return Ok(AllenRelation::FinishedBy);
+        }
+
+        if a_start == b_start && a_end < b_end {
+            return Ok(AllenRelation::Starts);
+        }
+
+        if a_start == b_start && a_end == b_end {
+            return Ok(AllenRelation::Equal);
+        }
+
+        if b_start < a_start && a_end < b_end {
+            return Ok(AllenRelation::During);
+        }
+
+        if a_start == b_start && a_end > b_end {
+            return Ok(AllenRelation::StartedBy);
+        }
+
+        if b_start < a_start && a_end == b_end {
+            return Ok(AllenRelation::Finishes);
+        }
+
+        if b_start < a_start && a_start < b_end && b_end < a_end {
+            return Ok(AllenRelation::OverlappedBy);
+        }
+
+        if b_end == a_start {
+            return Ok(AllenRelation::MetBy);
+        }
+
+        if b_end < a_start {
+            return Ok(AllenRelation::After);
+        }
+
+        Err(String::from("Unable to classify interval relation"))
+    }
+
+    fn validate_interval(&self) -> Result<(), String> {
+        if self.lower_key >= self.upper_key {
+            return Err(String::from(
+                "Interval is invalid, lower bound must be less than upper bound",
+            ));
+        }
+
+        Ok(())
     }
 }
