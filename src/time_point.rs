@@ -5,6 +5,7 @@ use time::OffsetDateTime;
 use crate::duration::Duration;
 use crate::interval::{AllenRelation, to_interval};
 use crate::leap_second::is_leap_second;
+use crate::period::Period;
 use crate::precision::Precision;
 use crate::time_zone::TimeZone;
 use crate::truth_values::TruthValue;
@@ -601,6 +602,81 @@ impl TimePoint {
             ..self.clone()
         }
     }
+
+    pub fn add_period(&self, period: Period) -> Self {
+        let mut result = self.clone();
+
+        result = add_years_calendar(&result, period.years());
+        result = add_months_calendar(&result, period.months());
+        result = add_days_signed(&result, period.days());
+
+        let total_milliseconds = period.hours() * 3_600_000
+            + period.minutes() * 60_000
+            + period.seconds() * 1000
+            + period.milliseconds();
+
+        result = result.add_duration(Duration::from_milliseconds(total_milliseconds));
+
+        result.uncertainty = None;
+        result
+    }
+
+    pub fn sub_period(&self, period: Period) -> Self {
+        self.add_period(-period)
+    }
+}
+
+fn add_years_calendar(t: &TimePoint, years: i64) -> TimePoint {
+    if years == 0 {
+        return t.clone();
+    }
+
+    let year = t.year as i64 + years;
+    let day = t.day.min(days_in_month(year as u32, t.month));
+
+    TimePoint {
+        year: year as u32,
+        day,
+        ..t.clone()
+    }
+}
+
+fn add_months_calendar(t: &TimePoint, months: i64) -> TimePoint {
+    if months == 0 {
+        return t.clone();
+    }
+
+    let total = t.month as i64 - 1 + months;
+    let year = t.year as i64 + total.div_euclid(12);
+    let month = total.rem_euclid(12) + 1;
+    let day = t.day.min(days_in_month(year as u32, month as u32));
+
+    TimePoint {
+        year: year as u32,
+        month: month as u32,
+        day,
+        ..t.clone()
+    }
+}
+
+fn add_days_signed(t: &TimePoint, days: i64) -> TimePoint {
+    let mut result = t.clone();
+
+    for _ in 0..days.unsigned_abs() {
+        if days < 0 {
+            result = TimePoint::sub_one_day(&result);
+        } else {
+            result = TimePoint::add_one_day(&result);
+        }
+    }
+
+    TimePoint {
+        hour: t.hour,
+        minute: t.minute,
+        second: t.second,
+        millisecond: t.millisecond,
+        ..result
+    }
 }
 
 fn seconds_forward(from: &TimePoint, to: &TimePoint) -> u64 {
@@ -645,6 +721,22 @@ impl Sub for TimePoint {
 
     fn sub(self, rhs: TimePoint) -> Duration {
         self.duration_since(&rhs)
+    }
+}
+
+impl Add<Period> for TimePoint {
+    type Output = Self;
+
+    fn add(self, rhs: Period) -> Self {
+        self.add_period(rhs)
+    }
+}
+
+impl Sub<Period> for TimePoint {
+    type Output = Self;
+
+    fn sub(self, rhs: Period) -> Self {
+        self.sub_period(rhs)
     }
 }
 

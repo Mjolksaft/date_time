@@ -1,6 +1,7 @@
 pub mod duration;
 pub mod interval;
 pub mod leap_second;
+pub mod period;
 pub mod precision;
 pub mod tai;
 pub mod time_point;
@@ -11,6 +12,7 @@ pub mod unix;
 pub mod util;
 
 use crate::duration::Duration;
+use crate::period::Period;
 use crate::time_point::{TimePoint, time_point};
 
 use pyo3::prelude::*;
@@ -59,6 +61,92 @@ impl PyDuration {
 
     fn __repr__(&self) -> String {
         format!("Duration({})", self.inner)
+    }
+}
+
+#[pyclass(skip_from_py_object)]
+#[derive(Clone)]
+pub struct PyPeriod {
+    inner: Period,
+}
+
+#[pymethods]
+impl PyPeriod {
+    #[new]
+    #[pyo3(signature = (years=0, months=0, days=0, hours=0, minutes=0, seconds=0, milliseconds=0))]
+    fn new(
+        years: i64,
+        months: i64,
+        days: i64,
+        hours: i64,
+        minutes: i64,
+        seconds: i64,
+        milliseconds: i64,
+    ) -> Self {
+        Self {
+            inner: Period::new(years, months, days, hours, minutes, seconds, milliseconds),
+        }
+    }
+
+    #[staticmethod]
+    fn from_years(years: i64) -> Self {
+        Self {
+            inner: Period::from_years(years),
+        }
+    }
+
+    #[staticmethod]
+    fn from_months(months: i64) -> Self {
+        Self {
+            inner: Period::from_months(months),
+        }
+    }
+
+    #[staticmethod]
+    fn from_days(days: i64) -> Self {
+        Self {
+            inner: Period::from_days(days),
+        }
+    }
+
+    fn years(&self) -> i64 {
+        self.inner.years()
+    }
+
+    fn months(&self) -> i64 {
+        self.inner.months()
+    }
+
+    fn days(&self) -> i64 {
+        self.inner.days()
+    }
+
+    fn hours(&self) -> i64 {
+        self.inner.hours()
+    }
+
+    fn minutes(&self) -> i64 {
+        self.inner.minutes()
+    }
+
+    fn seconds(&self) -> i64 {
+        self.inner.seconds()
+    }
+
+    fn milliseconds(&self) -> i64 {
+        self.inner.milliseconds()
+    }
+
+    fn is_zero(&self) -> bool {
+        self.inner.is_zero()
+    }
+
+    fn is_negative(&self) -> bool {
+        self.inner.is_negative()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("Period({})", self.inner)
     }
 }
 
@@ -154,6 +242,18 @@ impl PyTimePoint {
         }
     }
 
+    fn add_period(&self, period: &PyPeriod) -> Self {
+        Self {
+            inner: self.inner.add_period(period.inner),
+        }
+    }
+
+    fn sub_period(&self, period: &PyPeriod) -> Self {
+        Self {
+            inner: self.inner.sub_period(period.inner),
+        }
+    }
+
     fn before(&self, other: &PyTimePoint) -> PyResult<String> {
         Ok(format!(
             "{:?}",
@@ -238,6 +338,7 @@ fn parse(input: &str) -> PyResult<PyTimePoint> {
 fn date_time(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTimePoint>()?;
     m.add_class::<PyDuration>()?;
+    m.add_class::<PyPeriod>()?;
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     Ok(())
 }

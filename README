@@ -67,6 +67,22 @@
 - Arithmetic is calendar-aware and leap-second-aware (a leap second counts as one elapsed second)
 - Millisecond precision is preserved; `TimePoint` precision metadata is unchanged
 
+## Period
+
+- `Period` is a calendar-relative amount of time: years, months, days, plus a fixed time part (hours, minutes, seconds, milliseconds)
+- Unlike `Duration` (fixed elapsed time), months and years vary in length; a `Period` only becomes concrete once anchored to a `TimePoint`
+- Construction: `new`, `from_years`, `from_months`, `from_days`, `from_hours`, `from_minutes`, `from_seconds`, `from_milliseconds`, `zero`
+- Accessors for each component, `is_zero`, `is_negative`
+- Operators: `+`, `-`, unary `-` (components combine and normalize: 12 months → 1 year)
+- TimePoint arithmetic:
+  - `TimePoint + Period -> TimePoint`
+  - `TimePoint - Period -> TimePoint`
+- Calendar semantics:
+  - Adding years/months clamps the day to the last valid day of the target month (`2024-02-29 + 1 year` → `2025-02-28`, `2027-01-31 + 1 month` → `2027-02-28`)
+  - The date part applies first (years → months → days), then the fixed time part (leap-second-aware)
+  - The time of day is preserved across day arithmetic
+- Display uses ISO 8601-style notation (`P1Y2M3DT4H5M6S`, `-P1Y`)
+
 ## Uncertainty model
 
 - Attach a symmetric offset to any `TimePoint` via `with_uncertainty(Uncertainty::from_seconds(n))`
@@ -127,6 +143,7 @@
 
 - `time_point.rs` - temporal value with precision, time zone, and uncertainty
 - `duration.rs` - fixed elapsed time with millisecond resolution
+- `period.rs` - calendar-relative amount (years, months, days, time)
 - `precision.rs` - precision levels
 - `interval.rs` - half-open `[start, end)` intervals and three-valued relations
 - `time_zone.rs` - UTC, TAI, Unix
