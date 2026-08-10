@@ -14,8 +14,48 @@ pub mod util;
 use crate::duration::Duration;
 use crate::period::Period;
 use crate::time_point::{TimePoint, time_point};
+use crate::time_zone::TimeZone;
 
 use pyo3::prelude::*;
+
+#[pyclass(skip_from_py_object)]
+#[derive(Clone)]
+pub struct PyTimeZone {
+    inner: TimeZone,
+}
+
+#[pymethods]
+impl PyTimeZone {
+    #[staticmethod]
+    fn fixed(hours: i8, minutes: i8) -> PyResult<Self> {
+        let inner =
+            TimeZone::fixed(hours, minutes).map_err(pyo3::exceptions::PyValueError::new_err)?;
+
+        Ok(Self { inner })
+    }
+
+    #[classattr]
+    fn utc() -> Self {
+        Self {
+            inner: TimeZone::UTC,
+        }
+    }
+
+    #[classattr]
+    fn tai() -> Self {
+        Self {
+            inner: TimeZone::TAI,
+        }
+    }
+
+    fn offset_label(&self) -> String {
+        self.inner.offset_label()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("TimeZone({})", self.inner.offset_label())
+    }
+}
 
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
@@ -242,6 +282,40 @@ impl PyTimePoint {
         }
     }
 
+    fn zone_label(&self) -> String {
+        self.inner.zone.offset_label()
+    }
+
+    fn utc_offset_seconds(&self) -> PyResult<i64> {
+        self.inner
+            .utc_offset_seconds()
+            .map_err(pyo3::exceptions::PyValueError::new_err)
+    }
+
+    fn with_zone(&self, zone: &PyTimeZone) -> Self {
+        Self {
+            inner: self.inner.with_zone(zone.inner),
+        }
+    }
+
+    fn convert_to(&self, zone: &PyTimeZone) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .convert_to(zone.inner)
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+
+        Ok(Self { inner })
+    }
+
+    fn to_utc(&self) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .to_utc()
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+
+        Ok(Self { inner })
+    }
+
     fn add_period(&self, period: &PyPeriod) -> Self {
         Self {
             inner: self.inner.add_period(period.inner),
@@ -339,6 +413,7 @@ fn date_time(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTimePoint>()?;
     m.add_class::<PyDuration>()?;
     m.add_class::<PyPeriod>()?;
+    m.add_class::<PyTimeZone>()?;
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     Ok(())
 }

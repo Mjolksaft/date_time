@@ -95,6 +95,9 @@
   - `Unknown` when the widened intervals could still overlap
 - Example: `12:00:00 ± 10s` is `[11:59:50, 12:00:10)`; with `12:10:00 ± 10s` the relation
   `before` is certainly `True`, while `12:00:00 ± 10min` vs `12:05:00 ± 10min` is `Unknown`
+- Arithmetic propagates uncertainty: `(t ± u) + d = (t + d) ± u` for seconds, durations, and periods
+  (for periods, this is the standard shift-the-center approximation when calendar clamping applies)
+- The low-level `add_one_*`/`sub_one_*` boundary helpers still return points without uncertainty
 
 ## Ordering
 
@@ -139,6 +142,15 @@
 - Leap seconds are absorbed by the offset in TAI (no second 60)
 - TAI seconds falling during a leap second map back to UTC `23:59:60`
 
+## Time zones
+
+- `TimeZone::UTC`, `TimeZone::TAI`, `TimeZone::Unix`, and fixed-offset zones
+- `TimeZone::fixed(hours, minutes)` builds a fixed-offset zone such as `-05:00` or `+05:30` (hours -14..=14, minutes 0..=59)
+- A `TimePoint`'s fields are its local wall clock in its zone
+- `with_zone` attaches a zone without converting; `convert_to` / `to_utc` convert between zones, preserving precision and uncertainty
+- Fixed-offset zones keep their offset constant (no DST transitions); leap seconds are UTC-anchored
+- `to_unix_timestamp` accounts for the zone offset; TAI and leap-second points are rejected
+
 ## Module layout
 
 - `time_point.rs` - temporal value with precision, time zone, and uncertainty
@@ -146,7 +158,7 @@
 - `period.rs` - calendar-relative amount (years, months, days, time)
 - `precision.rs` - precision levels
 - `interval.rs` - half-open `[start, end)` intervals and three-valued relations
-- `time_zone.rs` - UTC, TAI, Unix
+- `time_zone.rs` - UTC, TAI, Unix, fixed-offset zones
 - `truth_values.rs` - True, False, Unknown
 - `uncertainty.rs` - symmetric uncertainty offset in seconds
 - `leap_second.rs` - leap-second data handling

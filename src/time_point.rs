@@ -26,7 +26,7 @@ pub struct TimePoint {
     pub uncertainty: Option<Uncertainty>,
 }
 
-fn start_of(year: u32, month: u32, day: u32, precision: Precision) -> TimePoint {
+fn start_of(year: u32, month: u32, day: u32, precision: Precision, zone: TimeZone) -> TimePoint {
     TimePoint {
         year,
         month,
@@ -36,7 +36,7 @@ fn start_of(year: u32, month: u32, day: u32, precision: Precision) -> TimePoint 
         second: 0,
         millisecond: 0,
         precision,
-        zone: TimeZone::UTC,
+        zone,
         uncertainty: None,
     }
 }
@@ -121,6 +121,76 @@ impl TimePoint {
 
     pub fn uncertainty(&self) -> Option<Uncertainty> {
         self.uncertainty
+    }
+
+    /// Attaches a zone to this point without converting its wall clock.
+    pub fn with_zone(&self, zone: TimeZone) -> Self {
+        TimePoint {
+            zone,
+            ..self.clone()
+        }
+    }
+
+    /// The UTC offset in seconds for the zone this point is expressed in.
+    pub fn utc_offset_seconds(&self) -> Result<i64, String> {
+        self.zone.utc_offset_seconds()
+    }
+
+    /// Interprets this point's wall clock together with its zone offset as a
+    /// UTC wall clock. Errors for TAI, which is not a fixed-offset zone.
+    pub fn as_utc(&self) -> Result<TimePoint, String> {
+        let offset = self.utc_offset_seconds()?;
+        let uncertainty = self.uncertainty;
+
+        let mut utc = if offset > 0 {
+            self.sub_seconds(offset as u64)
+        } else {
+            self.add_seconds((-offset) as u64)
+        };
+
+        utc.zone = TimeZone::UTC;
+        utc.uncertainty = uncertainty;
+        Ok(utc)
+    }
+
+    /// Converts this point to the equivalent wall clock in another zone.
+    ///
+    /// Supports UTC, `Unix`, and fixed-offset zones directly. Converting to or
+    /// from TAI routes through the leap-second-aware TAI conversion.
+    pub fn convert_to(&self, zone: TimeZone) -> Result<TimePoint, String> {
+        if self.zone == zone {
+            return Ok(self.clone());
+        }
+
+        let uncertainty = self.uncertainty;
+
+        let utc = match self.zone {
+            TimeZone::TAI => crate::tai::tai_to_utc(self)?,
+            _ => self.as_utc()?,
+        };
+
+        let mut result = match zone {
+            TimeZone::TAI => crate::tai::utc_to_tai(&utc)?,
+            TimeZone::UTC | TimeZone::Unix => utc.with_zone(zone),
+            TimeZone::Fixed { hours, minutes } => {
+                let offset = i64::from(hours) * 3600 + i64::from(minutes) * 60;
+                let mut local = if offset > 0 {
+                    utc.add_seconds(offset as u64)
+                } else {
+                    utc.sub_seconds((-offset) as u64)
+                };
+                local.zone = zone;
+                local
+            }
+        };
+
+        result.uncertainty = uncertainty;
+        Ok(result)
+    }
+
+    /// Convenience conversion to UTC.
+    pub fn to_utc(&self) -> Result<TimePoint, String> {
+        self.convert_to(TimeZone::UTC)
     }
 }
 
@@ -265,17 +335,20 @@ impl TimePoint {
 
         result.precision = self.precision.clone();
         result.zone = self.zone.clone();
+        result.uncertainty = self.uncertainty;
 
         Ok(result)
     }
 
     pub fn add_seconds(&self, seconds: u64) -> Self {
+        let uncertainty = self.uncertainty;
         let mut result = self.clone();
 
         for _ in 0..seconds {
             result = Self::add_one_second(&result);
         }
 
+        result.uncertainty = uncertainty;
         result
     }
 
@@ -372,7 +445,7 @@ impl TimePoint {
                 second: 0,
                 millisecond: 0,
                 precision: t.precision.clone(),
-                zone: TimeZone::UTC,
+                zone: t.zone.clone(),
                 uncertainty: None,
             }
         }
@@ -396,7 +469,7 @@ impl TimePoint {
                 second: 0,
                 millisecond: 0,
                 precision: t.precision.clone(),
-                zone: TimeZone::UTC,
+                zone: t.zone.clone(),
                 uncertainty: None,
             }
         }
@@ -404,37 +477,40 @@ impl TimePoint {
 
     pub fn add_one_day(t: &TimePoint) -> TimePoint {
         let days = days_in_month(t.year, t.month);
+        let zone = t.zone.clone();
 
         if t.day == days {
             if t.month == 12 {
-                start_of(t.year + 1, 1, 1, t.precision.clone())
+                start_of(t.year + 1, 1, 1, t.precision.clone(), zone)
             } else {
-                start_of(t.year, t.month + 1, 1, t.precision.clone())
+                start_of(t.year, t.month + 1, 1, t.precision.clone(), zone)
             }
         } else {
-            start_of(t.year, t.month, t.day + 1, t.precision.clone())
+            start_of(t.year, t.month, t.day + 1, t.precision.clone(), zone)
         }
     }
 
     pub fn add_one_month(t: &TimePoint) -> TimePoint {
         if t.month == 12 {
-            start_of(t.year + 1, 1, 1, t.precision.clone())
+            start_of(t.year + 1, 1, 1, t.precision.clone(), t.zone.clone())
         } else {
-            start_of(t.year, t.month + 1, 1, t.precision.clone())
+            start_of(t.year, t.month + 1, 1, t.precision.clone(), t.zone.clone())
         }
     }
 
     pub fn add_one_year(t: &TimePoint) -> TimePoint {
-        start_of(t.year + 1, 1, 1, t.precision.clone())
+        start_of(t.year + 1, 1, 1, t.precision.clone(), t.zone.clone())
     }
 
     pub fn sub_seconds(&self, seconds: u64) -> Self {
+        let uncertainty = self.uncertainty;
         let mut result = self.clone();
 
         for _ in 0..seconds {
             result = Self::sub_one_second(&result);
         }
 
+        result.uncertainty = uncertainty;
         result
     }
 
@@ -604,6 +680,7 @@ impl TimePoint {
     }
 
     pub fn add_period(&self, period: Period) -> Self {
+        let uncertainty = self.uncertainty;
         let mut result = self.clone();
 
         result = add_years_calendar(&result, period.years());
@@ -617,7 +694,7 @@ impl TimePoint {
 
         result = result.add_duration(Duration::from_milliseconds(total_milliseconds));
 
-        result.uncertainty = None;
+        result.uncertainty = uncertainty;
         result
     }
 

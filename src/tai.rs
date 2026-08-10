@@ -122,6 +122,9 @@ pub fn tai_utc_offset(point: &TimePoint) -> Result<u32, String> {
         TimeZone::Unix => Err(String::from(
             "A Unix TimePoint has no TAI-UTC relationship without UTC context",
         )),
+        TimeZone::Fixed { .. } => Err(String::from(
+            "A fixed-offset TimePoint must be converted to UTC before TAI conversion",
+        )),
     }
 }
 

@@ -1,15 +1,3 @@
-//! Fixed elapsed duration.
-//!
-//! A `Duration` is a fixed amount of elapsed time with millisecond
-//! resolution. It carries no calendar concepts: months and years are not
-//! representable here (that is the domain of a future `Period` type).
-//!
-//! Durations are signed: they may be positive, negative, or zero, and they
-//! support addition, subtraction, and negation.
-//!
-//! Arithmetic against a `TimePoint` is calendar-aware and leap-second-aware
-//! in exactly the same way the existing `TimePoint` second arithmetic is.
-
 use std::fmt;
 use std::ops::{Add, Neg, Sub};
 

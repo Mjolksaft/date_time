@@ -12,10 +12,17 @@ pub fn to_unix_timestamp(point: &TimePoint) -> Result<i64, String> {
         return Err(String::from("Unix timestamp cannot represent leap seconds"));
     }
 
-    if point.zone == TimeZone::TAI {
-        return Err(String::from(
-            "TAI TimePoint must be converted to UTC before Unix conversion",
-        ));
+    match point.zone {
+        TimeZone::TAI => {
+            return Err(String::from(
+                "TAI TimePoint must be converted to UTC before Unix conversion",
+            ));
+        }
+        TimeZone::Fixed { .. } => {
+            let utc = point.as_utc()?;
+            return to_unix_timestamp(&utc);
+        }
+        _ => {}
     }
 
     let datetime = time::PrimitiveDateTime::new(

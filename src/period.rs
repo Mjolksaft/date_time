@@ -1,18 +1,3 @@
-//! Calendar-relative period.
-//!
-//! A `Period` is an amount of calendar time composed of years, months, days,
-//! and a fixed time part (hours, minutes, seconds, milliseconds). Unlike a
-//! `Duration` (fixed elapsed time), months and years vary in length, so a
-//! `Period` only becomes a concrete amount of time once it is anchored to a
-//! `TimePoint` via `TimePoint::add_period` / `sub_period`.
-//!
-//! Calendar arithmetic follows standard semantics:
-//! - adding years/months clamps the day to the last valid day of the target
-//!   month (e.g. `2024-02-29 + 1 year` is `2025-02-28`, and `2027-01-31 +
-//!   1 month` is `2027-02-28`);
-//! - the date part is applied first (years, then months, then days), followed
-//!   by the fixed time part, which behaves like a `Duration`.
-
 use std::fmt;
 use std::ops::{Add, Neg, Sub};
 

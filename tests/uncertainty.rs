@@ -249,3 +249,120 @@ fn time_point_relations_with_same_uncertainty_are_consistent() {
     assert_eq!(a.before(&b).unwrap(), TruthValue::True);
     assert_eq!(a.equals(&b).unwrap(), TruthValue::False);
 }
+
+#[test]
+fn add_seconds_preserves_uncertainty() {
+    let t = time_point("2027-04-20-12-00-00")
+        .unwrap()
+        .with_uncertainty(Uncertainty::from_seconds(10));
+
+    let result = t.add_seconds(60);
+
+    assert_eq!(
+        result,
+        time_point("2027-04-20-12-01-00")
+            .unwrap()
+            .with_uncertainty(Uncertainty::from_seconds(10))
+    );
+}
+
+#[test]
+fn sub_seconds_preserves_uncertainty() {
+    let t = time_point("2027-04-20-12-00-00")
+        .unwrap()
+        .with_uncertainty(Uncertainty::from_seconds(10));
+
+    let result = t.sub_seconds(60);
+
+    assert_eq!(
+        result,
+        time_point("2027-04-20-11-59-00")
+            .unwrap()
+            .with_uncertainty(Uncertainty::from_seconds(10))
+    );
+}
+
+#[test]
+fn add_duration_preserves_uncertainty() {
+    let t = time_point("2027-04-20-12-00-00")
+        .unwrap()
+        .with_uncertainty(Uncertainty::from_seconds(10));
+
+    let result = t.add_duration(date_time::duration::Duration::from_seconds(90));
+
+    assert_eq!(
+        result,
+        time_point("2027-04-20-12-01-30")
+            .unwrap()
+            .with_uncertainty(Uncertainty::from_seconds(10))
+    );
+
+    let negative = t.add_duration(date_time::duration::Duration::from_seconds(-90));
+
+    assert_eq!(
+        negative,
+        time_point("2027-04-20-11-58-30")
+            .unwrap()
+            .with_uncertainty(Uncertainty::from_seconds(10))
+    );
+}
+
+#[test]
+fn add_period_preserves_uncertainty() {
+    let t = time_point("2027-04-20-12-00-00")
+        .unwrap()
+        .with_uncertainty(Uncertainty::from_seconds(3600));
+
+    let result = t.add_period(date_time::period::Period::from_months(2));
+
+    assert_eq!(
+        result,
+        time_point("2027-06-20-12-00-00")
+            .unwrap()
+            .with_uncertainty(Uncertainty::from_seconds(3600))
+    );
+
+    let backwards = t.sub_period(date_time::period::Period::from_months(2));
+
+    assert_eq!(
+        backwards,
+        time_point("2027-02-20-12-00-00")
+            .unwrap()
+            .with_uncertainty(Uncertainty::from_seconds(3600))
+    );
+}
+
+#[test]
+fn add_seconds_fast_preserves_uncertainty() {
+    let t = time_point("2027-04-20-12-00-00")
+        .unwrap()
+        .with_uncertainty(Uncertainty::from_seconds(10));
+
+    let result = t.add_seconds_fast(60).unwrap();
+
+    assert_eq!(
+        result,
+        time_point("2027-04-20-12-01-00")
+            .unwrap()
+            .with_uncertainty(Uncertainty::from_seconds(10))
+    );
+}
+
+#[test]
+fn shifted_uncertain_point_has_shifted_interval() {
+    let t = time_point("2027-04-20-12-00-00")
+        .unwrap()
+        .with_uncertainty(Uncertainty::from_seconds(10));
+    let shifted = t.add_duration(date_time::duration::Duration::from_seconds(5));
+
+    let shifted_interval = to_interval(&shifted, None).unwrap();
+
+    assert_eq!(
+        shifted_interval.lower,
+        time_point("2027-04-20-11-59-55").unwrap()
+    );
+    assert_eq!(
+        shifted_interval.upper,
+        time_point("2027-04-20-12-00-15").unwrap()
+    );
+}
