@@ -1,1 +1,16 @@
+# Rust build artifacts
 /target
+
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Streamlit runtime
+.streamlit/
+
+# OS junk
+.DS_Store
+Thumbs.db
