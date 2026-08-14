@@ -3,6 +3,7 @@ use crate::time_point::TimePoint;
 use crate::truth_values::TruthValue;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Interval {
     pub lower: TimePoint,
     pub upper: TimePoint,
@@ -11,6 +12,7 @@ pub struct Interval {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AllenRelation {
     Before,
     After,

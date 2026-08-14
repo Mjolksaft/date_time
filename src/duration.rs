@@ -2,6 +2,7 @@ use std::fmt;
 use std::ops::{Add, Neg, Sub};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Duration {
     milliseconds: i64,
 }

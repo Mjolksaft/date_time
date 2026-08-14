@@ -7,3 +7,16 @@ edition = "2024"
 reqwest = { version = "0.13.3", features = ["blocking"] }
 time = { version = "0.3", features = ["macros", "local-offset"] }
 pyo3 = { version = "0.28.3", features = ["abi3-py38"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+serde_json = "1.0"
+
+[[bench]]
+name = "benchmarks"
+harness = false

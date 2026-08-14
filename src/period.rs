@@ -2,6 +2,7 @@ use std::fmt;
 use std::ops::{Add, Neg, Sub};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Period {
     years: i64,
     months: i64,

@@ -12,9 +12,11 @@ pub mod unix;
 pub mod util;
 
 use crate::duration::Duration;
+use crate::interval::{Interval, interval, to_interval};
 use crate::period::Period;
 use crate::time_point::{TimePoint, time_point};
 use crate::time_zone::TimeZone;
+use crate::uncertainty::Uncertainty;
 
 use pyo3::prelude::*;
 
@@ -54,6 +56,30 @@ impl PyTimeZone {
 
     fn __repr__(&self) -> String {
         format!("TimeZone({})", self.inner.offset_label())
+    }
+}
+
+#[pyclass(skip_from_py_object)]
+#[derive(Clone)]
+pub struct PyUncertainty {
+    inner: Uncertainty,
+}
+
+#[pymethods]
+impl PyUncertainty {
+    #[staticmethod]
+    fn from_seconds(seconds: u64) -> Self {
+        Self {
+            inner: Uncertainty::from_seconds(seconds),
+        }
+    }
+
+    fn seconds(&self) -> u64 {
+        self.inner.seconds()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("Uncertainty({}s)", self.inner.seconds())
     }
 }
 
@@ -192,6 +218,96 @@ impl PyPeriod {
 
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
+pub struct PyInterval {
+    inner: Interval,
+}
+
+#[pymethods]
+impl PyInterval {
+    #[staticmethod]
+    fn interval(lower: &PyTimePoint, upper: &PyTimePoint) -> PyResult<Self> {
+        let inner = interval(&lower.inner, &upper.inner)
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+
+        Ok(Self { inner })
+    }
+
+    #[staticmethod]
+    #[pyo3(signature = (point, upper=None))]
+    fn to_interval(point: &PyTimePoint, upper: Option<&PyTimePoint>) -> PyResult<Self> {
+        let inner = to_interval(&point.inner, upper.map(|p| &p.inner))
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+
+        Ok(Self { inner })
+    }
+
+    fn lower(&self) -> PyTimePoint {
+        PyTimePoint {
+            inner: self.inner.lower.clone(),
+        }
+    }
+
+    fn upper(&self) -> PyTimePoint {
+        PyTimePoint {
+            inner: self.inner.upper.clone(),
+        }
+    }
+
+    fn lower_key(&self) -> u64 {
+        self.inner.lower_key()
+    }
+
+    fn upper_key(&self) -> u64 {
+        self.inner.upper_key()
+    }
+
+    fn before(&self, other: &PyInterval) -> String {
+        format!("{:?}", self.inner.before(&other.inner))
+    }
+
+    fn after(&self, other: &PyInterval) -> String {
+        format!("{:?}", self.inner.after(&other.inner))
+    }
+
+    fn equals(&self, other: &PyInterval) -> String {
+        format!("{:?}", self.inner.equals(&other.inner))
+    }
+
+    fn contains(&self, other: &PyInterval) -> String {
+        format!("{:?}", self.inner.contains(&other.inner))
+    }
+
+    fn overlaps(&self, other: &PyInterval) -> String {
+        format!("{:?}", self.inner.overlaps(&other.inner))
+    }
+
+    fn allen_relation(&self, other: &PyInterval) -> PyResult<String> {
+        Ok(format!(
+            "{}",
+            self.inner
+                .allen_relation(&other.inner)
+                .map_err(pyo3::exceptions::PyValueError::new_err)?
+        ))
+    }
+
+    fn __repr__(&self) -> String {
+        let p = &self.inner.lower;
+        let lower = format!(
+            "{:04}-{:02}-{:02}-{:02}-{:02}-{:02}-{:03}",
+            p.year, p.month, p.day, p.hour, p.minute, p.second, p.millisecond
+        );
+        let p = &self.inner.upper;
+        let upper = format!(
+            "{:04}-{:02}-{:02}-{:02}-{:02}-{:02}-{:03}",
+            p.year, p.month, p.day, p.hour, p.minute, p.second, p.millisecond
+        );
+
+        format!("Interval([{lower}, {upper}))")
+    }
+}
+
+#[pyclass(skip_from_py_object)]
+#[derive(Clone)]
 pub struct PyTimePoint {
     inner: TimePoint,
 }
@@ -226,6 +342,74 @@ impl PyTimePoint {
         Self {
             inner: TimePoint::now_utc(),
         }
+    }
+
+    #[staticmethod]
+    fn from_unix_timestamp(ts: i64) -> Self {
+        Self {
+            inner: TimePoint::from_unix_timestamp(ts),
+        }
+    }
+
+    fn year(&self) -> u32 {
+        self.inner.year
+    }
+
+    fn month(&self) -> u32 {
+        self.inner.month
+    }
+
+    fn day(&self) -> u32 {
+        self.inner.day
+    }
+
+    fn hour(&self) -> u32 {
+        self.inner.hour
+    }
+
+    fn minute(&self) -> u32 {
+        self.inner.minute
+    }
+
+    fn second(&self) -> u32 {
+        self.inner.second
+    }
+
+    fn millisecond(&self) -> u32 {
+        self.inner.millisecond
+    }
+
+    fn precision_label(&self) -> String {
+        format!("{:?}", self.inner.precision)
+    }
+
+    fn uncertainty(&self) -> Option<PyUncertainty> {
+        self.inner.uncertainty.map(|u| PyUncertainty { inner: u })
+    }
+
+    fn with_uncertainty(&self, uncertainty: &PyUncertainty) -> Self {
+        Self {
+            inner: self.inner.clone().with_uncertainty(uncertainty.inner),
+        }
+    }
+
+    fn boundary_key(&self) -> u64 {
+        self.inner.boundary_key()
+    }
+
+    fn add_seconds_fast(&self, seconds: u64) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .add_seconds_fast(seconds)
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+
+        Ok(Self { inner })
+    }
+
+    fn duration_until(&self, other: &PyTimePoint) -> PyResult<i64> {
+        self.inner
+            .duration_until(&other.inner)
+            .map_err(pyo3::exceptions::PyValueError::new_err)
     }
 
     fn add_minutes(&self, minutes: u64) -> Self {
@@ -408,12 +592,38 @@ fn parse(input: &str) -> PyResult<PyTimePoint> {
     PyTimePoint::parse(input)
 }
 
+#[pyfunction]
+fn utc_to_tai(point: &PyTimePoint) -> PyResult<PyTimePoint> {
+    let inner =
+        crate::tai::utc_to_tai(&point.inner).map_err(pyo3::exceptions::PyValueError::new_err)?;
+
+    Ok(PyTimePoint { inner })
+}
+
+#[pyfunction]
+fn tai_to_utc(point: &PyTimePoint) -> PyResult<PyTimePoint> {
+    let inner =
+        crate::tai::tai_to_utc(&point.inner).map_err(pyo3::exceptions::PyValueError::new_err)?;
+
+    Ok(PyTimePoint { inner })
+}
+
+#[pyfunction]
+fn tai_utc_offset(point: &PyTimePoint) -> PyResult<u32> {
+    crate::tai::tai_utc_offset(&point.inner).map_err(pyo3::exceptions::PyValueError::new_err)
+}
+
 #[pymodule]
 fn date_time(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTimePoint>()?;
     m.add_class::<PyDuration>()?;
     m.add_class::<PyPeriod>()?;
     m.add_class::<PyTimeZone>()?;
+    m.add_class::<PyUncertainty>()?;
+    m.add_class::<PyInterval>()?;
     m.add_function(wrap_pyfunction!(parse, m)?)?;
+    m.add_function(wrap_pyfunction!(utc_to_tai, m)?)?;
+    m.add_function(wrap_pyfunction!(tai_to_utc, m)?)?;
+    m.add_function(wrap_pyfunction!(tai_utc_offset, m)?)?;
     Ok(())
 }

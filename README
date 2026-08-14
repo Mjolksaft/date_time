@@ -151,6 +151,43 @@
 - Fixed-offset zones keep their offset constant (no DST transitions); leap seconds are UTC-anchored
 - `to_unix_timestamp` accounts for the zone offset; TAI and leap-second points are rejected
 
+## Python bindings
+
+The crate builds an `abi3` extension module via PyO3 (`maturin build`). Exposed classes and functions:
+
+- `PyTimePoint` - fields, arithmetic (`add_seconds`, `add_minutes`, `add_hours`, `add_duration`, `add_period`, and the `sub_*` counterparts), uncertainty (`with_uncertainty`, `uncertainty`), zones (`with_zone`, `convert_to`, `to_utc`), three-valued relations (`before`/`after`/`equals`/`contains`/`overlaps`), `allen_relation`, `to_unix_timestamp`/`from_unix_timestamp`, `add_seconds_fast`, `boundary_key`, `duration_until`
+- `PyDuration`, `PyPeriod` - fixed and calendar-relative amounts
+- `PyTimeZone` - `fixed(hours, minutes)`, `offset_label`
+- `PyUncertainty` - `from_seconds`, `seconds`
+- `PyInterval` - `interval(lower, upper)` / `to_interval(point, upper=None)`, `lower`/`upper`/`lower_key`/`upper_key`, three-valued relations, `allen_relation`
+- Module functions: `parse`, `utc_to_tai`, `tai_to_utc`, `tai_utc_offset`
+
+## Serialization
+
+- Optional `serde` feature (enabled with `--features serde`) derives `Serialize`/`Deserialize` for `TimePoint`, `Precision`, `TimeZone`, `Uncertainty`, `Duration`, `Period`, `Interval`, `AllenRelation`, and `TruthValue`
+- Round-trips exactly through JSON (or any serde format), preserving precision, zone, and uncertainty
+
+## Benchmarks
+
+Criterion benchmarks live in `benches/benchmarks.rs`; run with `cargo bench`.
+
+Notable results (dev profile on a typical desktop):
+
+| Operation | Time |
+| --- | --- |
+| `parse` full timestamp | ~275 ns |
+| `boundary_key` / `encode` | ~0.24 ns |
+| `add_seconds_fast` (3600 s) | ~20 ns |
+| `add_seconds` (3600 s, leap-aware) | ~2.8 ms |
+| `sub_seconds` (3600 s) | ~1 µs |
+| `add_period` (30 days) | ~46 ns |
+| `interval()` / `allen_relation` | ~12 / ~6 ns |
+| `convert_to` / `to_utc` / `to_unix_timestamp` | ~13–29 ms |
+
+Leap-second-aware second stepping (`add_seconds`, `add_duration`, and the zone
+conversions that route through them) is the dominant cost; `add_seconds_fast`
+and `sub_seconds` avoid the per-second leap lookup for most of their range.
+
 ## Module layout
 
 - `time_point.rs` - temporal value with precision, time zone, and uncertainty

@@ -9,6 +9,7 @@
 use std::fmt;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TimeZone {
     UTC,
     TAI,

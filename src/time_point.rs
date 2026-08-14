@@ -13,6 +13,7 @@ use crate::uncertainty::Uncertainty;
 use crate::util::{days_in_month, valid_date};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TimePoint {
     pub year: u32,
     pub month: u32,
