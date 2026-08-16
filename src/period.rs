@@ -1,6 +1,9 @@
 use std::fmt;
 use std::ops::{Add, Neg, Sub};
 
+/// A calendar-relative amount of time (years, months, days, and a fixed time
+/// part). Unlike [`crate::duration::Duration`], it only becomes concrete once
+/// anchored to a [`TimePoint`](crate::time_point::TimePoint).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Period {
@@ -13,10 +16,13 @@ pub struct Period {
     milliseconds: i64,
 }
 
+// Euclidean division that keeps negatives canonical (e.g. -1s -> 0 min -1s).
 fn divmod(value: i64, divisor: i64) -> (i64, i64) {
     (value.div_euclid(divisor), value.rem_euclid(divisor))
 }
 
+/// Re-normalizes components so each field is in range: 12 months -> 1 year,
+/// 1000 ms -> 1 s, and so on, carrying into the next coarser field.
 fn normalized(
     years: i64,
     months: i64,

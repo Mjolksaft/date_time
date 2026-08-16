@@ -1,3 +1,5 @@
+/// Result of an interval comparison when partial information is present:
+/// certain, certainly-not, or unknown (the spans could still overlap).
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TruthValue {

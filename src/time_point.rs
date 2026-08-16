@@ -12,6 +12,10 @@ use crate::truth_values::TruthValue;
 use crate::uncertainty::Uncertainty;
 use crate::util::{days_in_month, valid_date};
 
+/// A wall-clock instant with a precision, time zone, and optional uncertainty.
+///
+/// The fields form the local wall clock in [`zone`](TimePoint::zone); the same
+/// instant can have different field values in different zones.
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TimePoint {
@@ -43,6 +47,9 @@ fn start_of(year: u32, month: u32, day: u32, precision: Precision, zone: TimeZon
 }
 
 impl TimePoint {
+    /// Builds a point from the fields actually supplied; the first missing
+    /// field (and everything after) is defaulted to its lower bound, and the
+    /// precision is inferred from the deepest field provided.
     pub fn new(
         year: u32,
         month: Option<u32>,
@@ -281,6 +288,9 @@ pub fn parse_date_time_point(input: &str) -> Result<Vec<u32>, String> {
         .collect()
 }
 
+// Compares wall-clock fields lexicographically. Note: the zone is ignored, so
+// two points that represent the same instant can compare unequal if expressed
+// in different zones.
 impl Ord for TimePoint {
     fn cmp(&self, other: &Self) -> Ordering {
         (
@@ -341,6 +351,9 @@ impl TimePoint {
         Ok(result)
     }
 
+    /// Steps forward one second at a time so leap seconds are counted as
+    /// elapsed seconds. Correct but slow; prefer [`add_seconds_fast`](Self::add_seconds_fast)
+    /// when leap-second precision is not needed.
     pub fn add_seconds(&self, seconds: u64) -> Self {
         let uncertainty = self.uncertainty;
         let mut result = self.clone();
@@ -387,7 +400,10 @@ impl TimePoint {
         }
     }
 
+    /// Advances one second, inserting `23:59:60` when rolling into a leap
+    /// second and rolling over to the next minute/hour/day otherwise.
     pub fn add_one_second(t: &TimePoint) -> TimePoint {
+        // 23:59:59 on a leap second day -> 23:59:60
         if t.second == 59 && is_leap_second(t.year, t.month, t.day) {
             return TimePoint {
                 year: t.year,
@@ -523,6 +539,8 @@ impl TimePoint {
         self.sub_seconds(hours * 60 * 60)
     }
 
+    /// Backs up one second; when rolling before midnight the previous day is
+    /// reached at `23:59:60` if that day contained a leap second.
     pub fn sub_one_second(t: &TimePoint) -> TimePoint {
         if t.second > 0 {
             return TimePoint {
@@ -680,6 +698,8 @@ impl TimePoint {
         }
     }
 
+    /// Applies calendar parts first (years -> months -> days, each clamping to
+    /// the target month's real days), then the fixed time part as a duration.
     pub fn add_period(&self, period: Period) -> Self {
         let uncertainty = self.uncertainty;
         let mut result = self.clone();
@@ -757,6 +777,8 @@ fn add_days_signed(t: &TimePoint, days: i64) -> TimePoint {
     }
 }
 
+/// Counts elapsed seconds between two points by stepping second-by-second so
+/// that a leap second counts as one elapsed second (as real time does).
 fn seconds_forward(from: &TimePoint, to: &TimePoint) -> u64 {
     let mut count = 0u64;
     let mut current = from.clone();
@@ -862,6 +884,7 @@ impl TimePoint {
     }
 }
 
+/// Packs year (9 bits) / month (4) / day (5) into a u32, order-preserving.
 pub fn encode_date(year: u32, month: u32, day: u32) -> u32 {
     (year << 9) | (month << 5) | day
 }
@@ -878,6 +901,8 @@ pub fn decode_day(encoded: u32) -> u32 {
     encoded & 0b11111
 }
 
+/// Packs the full datetime into a u64 (50/4/5/5/6/6/24 bit fields); the layout
+/// preserves chronological ordering, so `boundary_key` comparisons are valid.
 pub fn encode_datetime(
     year: u32,
     month: u32,

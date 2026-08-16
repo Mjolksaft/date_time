@@ -1,9 +1,15 @@
+//! Leap-second data handling.
+//!
+//! Loads the IERS `leap-seconds.list` table (from disk, or fetched and cached),
+//! and answers whether a given calendar day contains the leap second `23:59:60`.
+
 use crate::util::{parse_month, previous_day};
 use reqwest::blocking::get;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
 
+/// Downloads the current `leap-seconds.list` from the IERS.
 pub fn fetch_leap_seconds() -> Result<String, Box<dyn Error>> {
     let url = "https://hpiers.obspm.fr/iers/bul/bulc/ntp/leap-seconds.list";
 
@@ -21,6 +27,7 @@ pub fn save_to_file(data: &str) -> std::io::Result<()> {
     fs::write("leap-seconds.list", data)
 }
 
+/// Returns the cached local table, or fetches and caches it on first use.
 fn leap_second_text() -> String {
     match load_from_file() {
         Ok(data) => data,
@@ -46,6 +53,9 @@ pub fn leap_second_entries() -> Vec<(u64, u32)> {
     entries
 }
 
+/// Parses `(NTP timestamp, TAI-UTC offset)` pairs from the raw table. Each
+/// entry marks the UTC instant (seconds since 1900-01-01) where the offset takes
+/// effect.
 pub fn parse_leap_second_entries(data: &str) -> Vec<(u64, u32)> {
     let mut entries = Vec::new();
 
@@ -69,6 +79,9 @@ pub fn parse_leap_second_entries(data: &str) -> Vec<(u64, u32)> {
     entries
 }
 
+/// Collects the set of calendar days `(y, m, d)` that contain the leap second
+/// `23:59:60`. The table's `#` comment gives the day the new offset starts at
+/// 00:00:00, which is the day *after* the leap second, so we subtract one day.
 pub fn parse_leap_seconds(data: &str) -> HashSet<(u32, u32, u32)> {
     let mut set = HashSet::new();
 
@@ -99,6 +112,7 @@ pub fn parse_leap_seconds(data: &str) -> HashSet<(u32, u32, u32)> {
     set
 }
 
+/// Whether the given calendar day contains the leap second `23:59:60`.
 pub fn is_leap_second(year: u32, month: u32, day: u32) -> bool {
     let leap_seconds = get_leap_seconds_data();
     leap_seconds.contains(&(year, month, day))

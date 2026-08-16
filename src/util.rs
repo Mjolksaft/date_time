@@ -1,7 +1,9 @@
+/// Gregorian leap-year rule.
 pub fn is_leap_year(year: &u32) -> bool {
     (*year % 4 == 0 && *year % 100 != 0) || (*year % 400 == 0)
 }
 
+/// Number of days in a month, honoring leap February.
 pub fn days_in_month(year: u32, month: u32) -> u32 {
     match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
@@ -17,6 +19,8 @@ pub fn days_in_month(year: u32, month: u32) -> u32 {
     }
 }
 
+/// Validates each supplied field's range (month/day/hour/minute/second/ms),
+/// allowing second 60 only as a potential leap second; `day` requires a `month`.
 pub fn valid_date(
     year: u32,
     month: Option<u32>,
@@ -67,6 +71,7 @@ pub fn valid_date(
     Ok(())
 }
 
+/// Maps the three-letter month abbreviations used in `leap-seconds.list`.
 pub fn parse_month(m: &str) -> Option<u32> {
     match m {
         "Jan" => Some(1),
@@ -85,6 +90,7 @@ pub fn parse_month(m: &str) -> Option<u32> {
     }
 }
 
+/// The calendar day immediately before the given one.
 pub fn previous_day(year: u32, month: u32, day: u32) -> (u32, u32, u32) {
     if day > 1 {
         (year, month, day - 1)

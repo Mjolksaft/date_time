@@ -1,6 +1,8 @@
 use std::fmt;
 use std::ops::{Add, Neg, Sub};
 
+/// A fixed elapsed amount of time with millisecond resolution and no calendar
+/// concepts (months and years are not representable).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Duration {

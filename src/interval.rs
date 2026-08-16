@@ -2,6 +2,7 @@ use crate::precision::Precision;
 use crate::time_point::TimePoint;
 use crate::truth_values::TruthValue;
 
+/// A half-open span `[lower, upper)` with precomputed ordered boundary keys.
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Interval {
@@ -11,6 +12,7 @@ pub struct Interval {
     pub upper_key: u64,
 }
 
+/// The thirteen possible relations between two intervals (Allen's interval algebra).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AllenRelation {
@@ -51,6 +53,7 @@ impl std::fmt::Display for AllenRelation {
     }
 }
 
+/// Builds `[lower, upper)` from explicit bounds; strips any uncertainty.
 pub fn interval(lower: &TimePoint, upper: &TimePoint) -> Result<Interval, String> {
     if lower > upper {
         return Err(String::from(
@@ -64,6 +67,8 @@ pub fn interval(lower: &TimePoint, upper: &TimePoint) -> Result<Interval, String
     ))
 }
 
+/// Computes the upper bound that the given precision's point denotes, i.e. the
+/// boundary of the unit the point resolves to (e.g. next day for a Day point).
 pub fn calculate_upper(lower: &TimePoint) -> TimePoint {
     match &lower.precision {
         Precision::Year => TimePoint::add_one_year(lower),
@@ -83,6 +88,9 @@ fn clear_uncertainty(point: TimePoint) -> TimePoint {
     }
 }
 
+/// Turns a point into an interval: with an explicit `upper` it is `[point, upper)`,
+/// with an uncertainty `t ± u` it becomes `[t-u, t+u)`, and otherwise it spans
+/// the unit implied by its precision (uncertainty takes precedence over precision).
 pub fn to_interval(point: &TimePoint, upper: Option<&TimePoint>) -> Result<Interval, String> {
     let uncertainty = point.uncertainty;
 
@@ -129,6 +137,8 @@ impl Interval {
         self.upper.boundary_key()
     }
 
+    // Three-valued logic helpers on the ordered keys: `certainly_disjoint`
+    // means the relation is decided, otherwise the answer may be Unknown.
     fn certainly_disjoint(&self, other: &Interval) -> bool {
         self.upper_key <= other.lower_key || other.upper_key <= self.lower_key
     }
@@ -137,6 +147,8 @@ impl Interval {
         self.lower_key < other.upper_key && other.lower_key < self.upper_key
     }
 
+    /// Three-valued `before`: True when certainly before, False when certainly
+    /// after, Unknown when the spans could still overlap.
     pub fn before(&self, other: &Interval) -> TruthValue {
         if self.upper_key <= other.lower_key {
             TruthValue::True
@@ -187,6 +199,8 @@ impl Interval {
         }
     }
 
+    /// Exact Allen relation when the boundaries are fully ordered; errors if
+    /// either interval is degenerate (lower == upper).
     pub fn allen_relation(&self, other: &Interval) -> Result<AllenRelation, String> {
         self.validate_interval()?;
         other.validate_interval()?;

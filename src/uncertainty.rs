@@ -1,3 +1,4 @@
+/// A symmetric uncertainty offset `±u` in whole seconds attached to a point.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Uncertainty {

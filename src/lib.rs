@@ -1,3 +1,5 @@
+//! PyO3 bindings exposing the core Rust temporal model to Python.
+
 pub mod duration;
 pub mod interval;
 pub mod leap_second;
@@ -20,6 +22,7 @@ use crate::uncertainty::Uncertainty;
 
 use pyo3::prelude::*;
 
+/// Python wrapper around [`TimeZone`]: UTC, TAI, Unix, or a fixed UTC offset.
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyTimeZone {
@@ -59,6 +62,7 @@ impl PyTimeZone {
     }
 }
 
+/// Python wrapper around [`Uncertainty`]: a symmetric offset in seconds.
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyUncertainty {
@@ -83,6 +87,7 @@ impl PyUncertainty {
     }
 }
 
+/// Python wrapper around [`Duration`]: a fixed elapsed time with ms resolution.
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyDuration {
@@ -130,6 +135,7 @@ impl PyDuration {
     }
 }
 
+/// Python wrapper around [`Period`]: a calendar-relative amount of time.
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyPeriod {
@@ -216,6 +222,7 @@ impl PyPeriod {
     }
 }
 
+/// Python wrapper around [`Interval`]: a half-open `[lower, upper)` span.
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyInterval {
@@ -306,6 +313,7 @@ impl PyInterval {
     }
 }
 
+/// Python wrapper around [`TimePoint`]: a wall clock with precision/zone/uncertainty.
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyTimePoint {
@@ -592,6 +600,7 @@ fn parse(input: &str) -> PyResult<PyTimePoint> {
     PyTimePoint::parse(input)
 }
 
+/// Converts a UTC [`TimePoint`] to TAI, absorbing leap seconds into the offset.
 #[pyfunction]
 fn utc_to_tai(point: &PyTimePoint) -> PyResult<PyTimePoint> {
     let inner =
@@ -600,6 +609,7 @@ fn utc_to_tai(point: &PyTimePoint) -> PyResult<PyTimePoint> {
     Ok(PyTimePoint { inner })
 }
 
+/// Converts a TAI [`TimePoint`] back to UTC; leap seconds surface as `23:59:60`.
 #[pyfunction]
 fn tai_to_utc(point: &PyTimePoint) -> PyResult<PyTimePoint> {
     let inner =
@@ -608,6 +618,7 @@ fn tai_to_utc(point: &PyTimePoint) -> PyResult<PyTimePoint> {
     Ok(PyTimePoint { inner })
 }
 
+/// Returns the TAI-UTC offset (in seconds) valid at the given instant.
 #[pyfunction]
 fn tai_utc_offset(point: &PyTimePoint) -> PyResult<u32> {
     crate::tai::tai_utc_offset(&point.inner).map_err(pyo3::exceptions::PyValueError::new_err)
